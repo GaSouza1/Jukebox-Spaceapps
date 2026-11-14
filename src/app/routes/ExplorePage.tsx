@@ -7,6 +7,7 @@ import { SonificationPlayer } from "../../features/sonification/components/Sonif
 import { ComparisonChart } from "../../features/visualization/charts/ComparisonChart";
 import { EarthMap } from "../../features/visualization/map/EarthMap";
 import { useComparisonStore } from "../../stores/comparisonStore";
+import { ImageSonification } from "@/features/sonification/components/ImageAnalyzer";
 
 export function ExplorePage() {
   const { regionA, regionB, indicator, startYear, endYear, currentIndex } = useComparisonStore();
@@ -47,6 +48,7 @@ export function ExplorePage() {
         </div>
       </header>
 
+      <ImageSonification />
       <ComparisonControls />
 
       <section className="map-section" aria-labelledby="map-title">
