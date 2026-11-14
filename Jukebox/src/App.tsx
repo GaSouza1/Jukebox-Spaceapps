@@ -3,11 +3,16 @@ import heroImg from './assets/hero.png'
 import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
 import './App.css'
-import EIC from '../EIC.json'
+import {tipoMidia, url} from './filtrarDescricao.ts'
+
+
+// Record<string | unknown, string
+
 
 function App() {
   const [count, setCount] = useState(0)
-  console.log(EIC);
+
+  console.log(`tipoMidia 1 ${JSON.stringify(tipoMidia)};\n url 1 ${JSON.stringify(url)}`)
   return (
     <>
       <section id="center">

@@ -1,13 +1,271 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>vite</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Earth Information Center: explorador de dados</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+:root{
+  --bg:#eef3f5; --panel:#fbfdfd; --ink:#12263a; --muted:#5a6b7a; --line:#cfdbe1;
+  --accent:#0f6b73; --accent-ink:#fff; --hot:#c8431f;
+  --sans:"Instrument Sans",system-ui,sans-serif; --serif:"Source Serif 4",Georgia,serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0e1a24; --panel:#14232f; --ink:#e3edf2; --muted:#93a6b3; --line:#27394a; --accent:#5cc3c9; --accent-ink:#06222a; --hot:#ff8a65}
+}
+*{box-sizing:border-box}
+html{height:100%}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+header{padding:28px clamp(16px,4vw,48px) 8px}
+h1{font:600 clamp(26px,4vw,40px)/1.15 var(--serif);margin:0 0 6px}
+header p{margin:0;color:var(--muted);max-width:62ch}
+.layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:24px;padding:16px clamp(16px,4vw,48px) 48px}
+nav{position:sticky;top:12px;align-self:start;display:flex;flex-direction:column;gap:2px}
+nav button{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;background:none;border:0;border-left:3px solid transparent;color:var(--ink);font:inherit;padding:8px 10px;cursor:pointer;border-radius:0 6px 6px 0}
+nav button:hover{background:var(--panel)}
+nav button[aria-current="true"]{border-left-color:var(--accent);background:var(--panel);font-weight:600}
+nav .n{color:var(--muted);font-variant-numeric:tabular-nums}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.tools input[type=search]{flex:1 1 220px;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);font:inherit}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{border:1px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;font-size:13px;padding:4px 10px;border-radius:999px;cursor:pointer}
+.chips button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.count{color:var(--muted);font-size:13px;margin:0 0 10px}
+ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+li{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:grid;grid-template-columns:1fr;gap:6px}
+li.com-img{grid-template-columns:120px 1fr;align-items:start}
+li img{width:120px;height:68px;object-fit:cover;border-radius:4px;background:var(--line)}
+.meta{font-size:12px;color:var(--muted)}
+.meta b{font-weight:600;color:var(--hot)}
+.valor{margin:0;overflow-wrap:anywhere}
+.valor.texto{font-family:var(--serif);font-size:16px;line-height:1.55;max-width:80ch}
+.valor.longo{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.mais{justify-self:start;background:none;border:0;color:var(--accent);font:inherit;font-size:13px;padding:0;cursor:pointer}
+.vazio{padding:36px 20px;border:1px dashed var(--line);border-radius:8px;text-align:center;color:var(--muted)}
+.vazio label{display:inline-block;margin-top:10px;padding:8px 14px;background:var(--accent);color:var(--accent-ink);border-radius:6px;cursor:pointer;font-weight:600}
+.vazio input{position:absolute;opacity:0;width:1px;height:1px}
+.vazio input:focus-visible + span{outline:2px solid var(--ink);outline-offset:3px}
+@media (max-width:760px){
+  .layout{grid-template-columns:1fr}
+  nav{position:static;flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:4px}
+  nav button{width:auto;white-space:nowrap;border-left:0;border-bottom:3px solid transparent;border-radius:6px 6px 0 0}
+  nav button[aria-current="true"]{border-bottom-color:var(--accent)}
+  li.com-img{grid-template-columns:1fr}
+  li img{width:100%;height:auto;aspect-ratio:16/9}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="titulo-pagina">Earth Information Center</h1>
+  <p id="sub">Carregando EIC.json…</p>
+</header>
+
+<div class="layout">
+  <nav id="nav" aria-label="Tipos de dado"></nav>
+  <main>
+    <div id="vazio" class="vazio" hidden>
+      <div id="vazio-msg">Não foi possível carregar o EIC.json automaticamente.</div>
+      <label><input type="file" id="arquivo" accept=".json,application/json"><span>Escolher arquivo JSON</span></label>
+    </div>
+    <section id="conteudo" hidden>
+      <div class="tools">
+        <input type="search" id="busca" placeholder="Buscar no texto" aria-label="Buscar">
+        <div class="chips" id="origens" role="group" aria-label="Filtrar por origem"></div>
+      </div>
+      <p class="count" id="contagem" aria-live="polite"></p>
+      <ul id="lista"></ul>
+    </section>
+  </main>
+</div>
+
+<script>
+const CAMPOS = {
+  descricao: 'Descrições', titulo: 'Títulos', legenda: 'Legendas', url: 'URLs',
+  altText: 'Textos alternativos', tipoPagina: 'Tipos de página', tipoItem: 'Tipos de item',
+  widget: 'Widgets', arquivo: 'Arquivos', tipoMidia: 'Tipos de mídia',
+  dataLancamento: 'Datas de lançamento', dataAtualizacao: 'Datas de atualização', dimensoes: 'Dimensões'
+};
+const ORIGENS = { root: 'Raiz', media_group: 'Grupo', item: 'Item', page_instance: 'Página', imagem: 'Imagem' };
+
+// Mesma lógica de extrairPorTipo (versão TypeScript), em JavaScript
+function extrairPorTipo(root, ignorarVazios = true) {
+  const saida = Object.fromEntries(Object.keys(CAMPOS).map(k => [k, []]));
+  const visto = new Set();
+  const add = (campo, origem, id, valor) => {
+    if (valor === undefined || valor === null) return;
+    if (ignorarVazios && typeof valor === 'string' && valor.trim() === '') return;
+    const chave = campo + ':' + origem + ':' + id;
+    if (visto.has(chave)) return;
+    visto.add(chave);
+    saida[campo].push({ id, origem, valor });
+  };
+  const lerImagem = img => {
+    if (!img) return;
+    add('url', 'imagem', img.id, img.url);
+    add('arquivo', 'imagem', img.id, img.filename);
+    add('tipoMidia', 'imagem', img.id, img.media_type);
+    add('altText', 'imagem', img.id, img.alt_text);
+    add('dimensoes', 'imagem', img.id, { width: img.width, height: img.height, pixels: img.pixels });
+  };
+  const lerPagina = (p, origem) => {
+    add('url', origem, p.id, p.url);
+    add('tipoPagina', origem, p.id, p.page_type);
+    add('titulo', origem, p.id, p.title);
+    add('descricao', origem, p.id, p.description);
+    add('dataLancamento', origem, p.id, p.release_date);
+    add('dataAtualizacao', origem, p.id, p.update_date);
+    lerImagem(p.main_image);
+  };
+  lerPagina(root, 'root');
+  for (const g of root.media_groups || []) {
+    add('url', 'media_group', g.id, g.url);
+    add('widget', 'media_group', g.id, g.widget);
+    add('titulo', 'media_group', g.id, g.title);
+    add('legenda', 'media_group', g.id, g.caption);
+    add('descricao', 'media_group', g.id, g.description);
+    for (const item of g.items || []) {
+      add('tipoItem', 'item', item.id, item.type);
+      add('titulo', 'item', item.id, item.title);
+      add('legenda', 'item', item.id, item.caption);
+      if (item.type === 'media_group') lerImagem(item.instance);
+      else lerPagina(item.instance, 'page_instance');
+    }
+  }
+  return saida;
+}
+
+// ---------- Interface ----------
+const $ = id => document.getElementById(id);
+const estado = { dados: null, campo: 'descricao', origens: new Set(), busca: '', expandidos: new Set() };
+
+const semHtml = s => { const d = document.createElement('div'); d.innerHTML = s; return d.textContent.replace(/\s+/g, ' ').trim(); };
+const ehImagem = v => typeof v === 'string' && /\.(png|jpe?g|gif|webp)(\?|$)/i.test(v);
+const ehData = c => c === 'dataLancamento' || c === 'dataAtualizacao';
+const ehTexto = c => ['descricao', 'legenda', 'altText', 'titulo'].includes(c);
+
+function textoDe(campo, valor) {
+  if (campo === 'dimensoes') return valor.width + ' × ' + valor.height + ' (' + valor.pixels.toLocaleString('pt-BR') + ' px)';
+  if (ehData(campo)) { const d = new Date(valor); return isNaN(d) ? valor : d.toLocaleDateString('pt-BR', { dateStyle: 'long' }); }
+  return ['descricao', 'legenda', 'altText'].includes(campo) ? semHtml(valor) : String(valor);
+}
+
+function montarNav() {
+  const nav = $('nav'); nav.textContent = '';
+  for (const [k, rotulo] of Object.entries(CAMPOS)) {
+    const n = estado.dados[k].length;
+    if (!n) continue;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = '<span></span><span class="n"></span>';
+    b.firstChild.textContent = rotulo;
+    b.lastChild.textContent = n;
+    b.setAttribute('aria-current', k === estado.campo);
+    b.onclick = () => { estado.campo = k; estado.origens.clear(); estado.busca = ''; $('busca').value = ''; render(); };
+    nav.appendChild(b);
+  }
+}
+
+function montarChips(entradas) {
+  const cont = $('origens'); cont.textContent = '';
+  const presentes = [...new Set(entradas.map(e => e.origem))];
+  if (presentes.length < 2) return;
+  for (const o of presentes) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = ORIGENS[o] || o;
+    b.setAttribute('aria-pressed', estado.origens.has(o));
+    b.onclick = () => { estado.origens.has(o) ? estado.origens.delete(o) : estado.origens.add(o); render(); };
+    cont.appendChild(b);
+  }
+}
+
+function render() {
+  const { campo } = estado;
+  const todas = estado.dados[campo];
+  montarNav(); montarChips(todas);
+
+  const q = estado.busca.toLowerCase();
+  const filtradas = todas.filter(e =>
+    (!estado.origens.size || estado.origens.has(e.origem)) &&
+    (!q || textoDe(campo, e.valor).toLowerCase().includes(q)));
+
+  $('contagem').textContent = filtradas.length + ' de ' + todas.length + ' em ' + CAMPOS[campo].toLowerCase();
+  const ul = $('lista'); ul.textContent = '';
+
+  for (const e of filtradas) {
+    const li = document.createElement('li');
+    const corpo = document.createElement('div');
+    const chave = campo + e.origem + e.id;
+
+    const meta = document.createElement('div'); meta.className = 'meta';
+    meta.innerHTML = '<b></b> · id <span></span>';
+    meta.querySelector('b').textContent = ORIGENS[e.origem] || e.origem;
+    meta.querySelector('span').textContent = e.id;
+
+    const v = document.createElement('p');
+    const txt = textoDe(campo, e.valor);
+    v.className = 'valor' + (ehTexto(campo) ? ' texto' : '');
+    if (campo === 'url') {
+      const a = document.createElement('a'); a.href = e.valor; a.target = '_blank'; a.rel = 'noopener'; a.textContent = e.valor; v.appendChild(a);
+    } else v.textContent = txt;
+
+    corpo.append(meta, v);
+
+    if (ehTexto(campo) && txt.length > 280) {
+      const aberto = estado.expandidos.has(chave);
+      if (!aberto) v.classList.add('longo');
+      const m = document.createElement('button'); m.type = 'button'; m.className = 'mais';
+      m.textContent = aberto ? 'Mostrar menos' : 'Mostrar tudo';
+      m.onclick = () => { aberto ? estado.expandidos.delete(chave) : estado.expandidos.add(chave); render(); };
+      corpo.appendChild(m);
+    }
+
+    if (campo === 'url' && ehImagem(e.valor)) {
+      li.classList.add('com-img');
+      const img = document.createElement('img');
+      img.src = e.valor.replace(/^http:/, 'https:'); img.loading = 'lazy'; img.alt = '';
+      img.onerror = () => { img.remove(); li.classList.remove('com-img'); };
+      li.appendChild(img);
+    }
+    li.appendChild(corpo);
+    ul.appendChild(li);
+  }
+  if (!filtradas.length) ul.innerHTML = '<li>Nenhum resultado. Limpe a busca ou os filtros de origem.</li>';
+}
+
+function carregar(json) {
+  estado.dados = extrairPorTipo(json);
+  $('titulo-pagina').textContent = json.title || 'Earth Information Center';
+  const total = Object.values(estado.dados).reduce((s, a) => s + a.length, 0);
+  $('sub').textContent = total + ' valores extraídos de ' + (json.media_groups || []).length + ' grupos de mídia.';
+  $('vazio').hidden = true; $('conteudo').hidden = false;
+  estado.campo = estado.dados.descricao.length ? 'descricao' : Object.keys(CAMPOS).find(k => estado.dados[k].length);
+  render();
+}
+
+function falhou(msg) {
+  $('sub').textContent = 'Nenhum dado carregado.';
+  if (msg) $('vazio-msg').textContent = msg;
+  $('vazio').hidden = false; $('conteudo').hidden = true;
+}
+
+$('busca').addEventListener('input', e => { estado.busca = e.target.value; render(); });
+$('arquivo').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { carregar(JSON.parse(await f.text())); }
+  catch { falhou('Esse arquivo não é um JSON válido do formato do EIC. Escolha outro.'); }
+});
+
+// Tenta ler EIC.json ao lado desta página; se falhar, pede o arquivo
+fetch('EIC.json')
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(carregar)
+  .catch(() => falhou('Não foi possível carregar o EIC.json automaticamente (abra a página por um servidor local ou escolha o arquivo).'));
+</script>
+</body>
 </html>
