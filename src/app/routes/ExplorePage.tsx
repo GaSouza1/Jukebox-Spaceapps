@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { DataSourceBadge } from "../../components/DataSourceBadge";
 import { StableText } from "../../components/StableText";
 import { ComparisonControls } from "../../features/comparison/components/ComparisonControls";
@@ -10,7 +10,8 @@ import { EarthMap } from "../../features/visualization/map/EarthMap";
 import { useComparisonStore } from "../../stores/comparisonStore";
 import { ImageSonification } from "@/features/sonification/components/ImageAnalyzer";
 import { guidedText } from "@/features/guided-experience/i18n/en";
-
+import api from "@/features/data/apiData";
+import {createEicEntries, createEicIndex} from "@/features/data/data";
 export function ExplorePage() {
   const { regionA, regionB, indicator, startYear, endYear, currentIndex } = useComparisonStore();
   const seriesA = useMemo(
@@ -23,6 +24,17 @@ export function ExplorePage() {
       regionB ? createDemoSeries(regionB, indicator as IndicatorId, startYear, endYear) : null,
     [regionB, indicator, startYear, endYear],
   );
+
+  const data = async () => {
+    const result = await api.get('/');
+    const entries = createEicEntries(result.data);
+    const index = createEicIndex(entries);
+    console.log(index);
+  };
+
+  useEffect(() => {
+    data();
+  }, []);
 
   if (!regionA || !regionB || !seriesA || !seriesB) {
     return (

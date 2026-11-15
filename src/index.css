@@ -361,6 +361,7 @@
   display: grid;
   place-items: center;
   overflow: hidden;
+  mix-blend-mode: lighten;
 }
 .planet {
   width: min(33vw, 450px);
