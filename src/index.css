@@ -44,6 +44,12 @@
   p {
     text-wrap: balance;
   }
+
+  /* Minimum text size is 0.75rem (12px at the default root size). Preflight
+     sets small to 80% of its parent, which would go below it in 12px text. */
+  small {
+    font-size: max(0.8em, 0.75rem);
+  }
 }
 
 :root {
@@ -113,7 +119,7 @@
 .brand strong,
 .brand small {
   display: block;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
 }
 .brand small {
   color: #7f8da0;
@@ -181,7 +187,7 @@
 .source-pill,
 .demo-badge {
   font:
-    500 0.63rem "DM Mono",
+    500 0.75rem "DM Mono",
     monospace;
   letter-spacing: 0.12em;
   border: 1px solid #39495d;
@@ -237,7 +243,7 @@
   display: block;
   color: #7f91a6;
   font:
-    500 0.67rem "DM Mono",
+    500 0.75rem "DM Mono",
     monospace;
   letter-spacing: 0.18em;
   margin-bottom: 1rem;
@@ -296,7 +302,7 @@
 }
 .challenge-tag {
   color: #8c9aad;
-  font: 0.63rem "DM Mono";
+  font: 0.75rem "DM Mono";
   letter-spacing: 0.14em;
   display: flex;
   align-items: center;
@@ -347,7 +353,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  font: 0.6rem "DM Mono";
+  font: 0.75rem "DM Mono";
   letter-spacing: 0.05em;
 }
 .hero-trust strong {
@@ -426,7 +432,7 @@
   position: absolute;
   z-index: 3;
   color: white;
-  font: 0.62rem "DM Mono";
+  font: 0.75rem "DM Mono";
   letter-spacing: 0.1em;
 }
 .point i {
@@ -470,7 +476,7 @@
   right: 3%;
   bottom: 4%;
   text-align: right;
-  font: 0.6rem "DM Mono";
+  font: 0.75rem "DM Mono";
   color: #8492a6;
 }
 .planet-caption span,
@@ -505,7 +511,7 @@
 .experience-steps article span,
 .science-grid article > span {
   color: #4f9bdc;
-  font: 0.65rem "DM Mono";
+  font: 0.75rem "DM Mono";
 }
 .experience-steps h3 {
   font-size: 0.9rem;
@@ -521,7 +527,7 @@
   margin: auto;
   padding: 0 2rem 4rem;
   color: #738195;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -546,7 +552,7 @@
 .heading-note {
   width: 250px;
   color: #77869a;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   line-height: 1.6;
 }
 .heading-note p {
@@ -577,7 +583,7 @@
 }
 .section-label-row p {
   color: #8492a6;
-  font: 0.62rem "DM Mono";
+  font: 0.75rem "DM Mono";
 }
 .region-grid {
   display: grid;
@@ -602,7 +608,7 @@
 }
 .region-key,
 .coordinate {
-  font: 0.62rem "DM Mono";
+  font: 0.75rem "DM Mono";
   letter-spacing: 0.12em;
   color: #8190a4;
 }
@@ -622,11 +628,11 @@
 }
 .region-selector p {
   color: #8492a6;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   margin-top: 0.75rem;
 }
 .region-selector p span {
-  font-size: 0.5rem;
+  font-size: 0.75rem;
 }
 .blue.region-selector p span {
   color: #47a9ff;
@@ -638,7 +644,7 @@
   display: grid;
   place-items: center;
   color: #8492a6;
-  font: 0.65rem "DM Mono";
+  font: 0.75rem "DM Mono";
 }
 .versus span {
   border: 1px solid #344358;
@@ -658,7 +664,7 @@
 fieldset legend,
 .player-controls label {
   color: #8f9db0;
-  font: 0.64rem "DM Mono";
+  font: 0.75rem "DM Mono";
   letter-spacing: 0.08em;
   margin-bottom: 0.7rem;
 }
@@ -680,7 +686,7 @@ fieldset legend,
 .segmented button small {
   display: block;
   color: #8492a6;
-  font: 0.58rem "DM Mono";
+  font: 0.75rem "DM Mono";
   margin-top: 0.2rem;
 }
 .segmented button.active {
@@ -698,7 +704,7 @@ fieldset legend,
   align-items: center;
   gap: 0.55rem;
   color: #8492a6;
-  font-size: 0.65rem;
+  font-size: 0.75rem;
 }
 .period-control select,
 .player-controls select {
@@ -724,7 +730,7 @@ fieldset legend,
   padding: 0.6rem 0.8rem;
   background: rgba(6, 14, 24, 0.85);
   border: 1px solid #33445a;
-  font: 0.58rem "DM Mono";
+  font: 0.75rem "DM Mono";
 }
 .map-overlay span,
 .map-overlay small {
@@ -743,7 +749,7 @@ fieldset legend,
 .live-values {
   display: flex;
   gap: 1.5rem;
-  font: 0.62rem "DM Mono";
+  font: 0.75rem "DM Mono";
 }
 .live-values span {
   display: flex;
@@ -764,7 +770,7 @@ fieldset legend,
 .legend {
   display: flex;
   gap: 1.5rem;
-  font: 0.6rem "DM Mono";
+  font: 0.75rem "DM Mono";
   margin-bottom: 1rem;
 }
 .legend i,
@@ -788,7 +794,7 @@ fieldset legend,
   margin: 1rem 0 5rem;
 }
 .status {
-  font: 0.6rem "DM Mono";
+  font: 0.75rem "DM Mono";
   letter-spacing: 0.1em;
   border: 1px solid #38495d;
   padding: 0.4rem 0.6rem;
@@ -835,7 +841,7 @@ fieldset legend,
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font: 0.62rem "DM Mono";
+  font: 0.75rem "DM Mono";
   color: #728195;
 }
 .timeline-readout strong {
@@ -869,7 +875,7 @@ fieldset legend,
 .stop-button {
   width: 36px;
   height: 36px;
-  font-size: 0.6rem;
+  font-size: 0.75rem;
 }
 .play-button {
   width: 54px;
@@ -894,14 +900,14 @@ fieldset legend,
 }
 .volume-label span {
   grid-column: 2;
-  font-size: 0.65rem;
+  font-size: 0.75rem;
 }
 .sound-key {
   display: flex;
   gap: 2rem;
   margin-top: 1.5rem;
   color: #8593a6;
-  font: 0.6rem "DM Mono";
+  font: 0.75rem "DM Mono";
 }
 .science-section {
   display: grid;
@@ -912,7 +918,7 @@ fieldset legend,
 }
 .science-title p {
   color: #8492a6;
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   margin-top: 1rem;
 }
 .science-grid {
@@ -926,7 +932,7 @@ fieldset legend,
 }
 .science-grid p {
   color: #8190a3;
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   line-height: 1.75;
 }
 .source-note {
@@ -937,7 +943,7 @@ fieldset legend,
   display: flex;
   align-items: center;
   gap: 1rem;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
 }
 .source-note span:not(.demo-badge, .demo-badge *) {
   color: #8492a6;
@@ -988,14 +994,14 @@ fieldset legend,
 }
 .about-layout > nav p {
   color: #8492a6;
-  font: 0.6rem "DM Mono";
+  font: 0.75rem "DM Mono";
   letter-spacing: 0.12em;
   margin-bottom: 0.5rem;
 }
 .about-layout > nav a {
   color: #7f8da0;
   text-decoration: none;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
 }
 .about-layout > nav a:hover {
   color: white;
@@ -1008,7 +1014,7 @@ fieldset legend,
 }
 .about-sections > section > span {
   color: #4c9cdf;
-  font: 0.65rem "DM Mono";
+  font: 0.75rem "DM Mono";
 }
 .about-sections h2 {
   font-size: 2rem;
@@ -1034,7 +1040,7 @@ fieldset legend,
   border-bottom: 1px solid #26364a;
   text-decoration: none;
   align-items: center;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
 }
 .source-list strong {
   color: #c8d4e1;
@@ -1332,7 +1338,7 @@ fieldset legend,
   flex-direction: column;
   gap: 0.4rem;
   color: #8f9db0;
-  font: 0.64rem "DM Mono";
+  font: 0.75rem "DM Mono";
   letter-spacing: 0.08em;
 }
 .image-options select {
@@ -1370,7 +1376,7 @@ fieldset legend,
   justify-content: space-between;
   gap: 0.25rem 1rem;
   color: #8f9db0;
-  font: 0.64rem "DM Mono";
+  font: 0.75rem "DM Mono";
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1381,7 +1387,7 @@ fieldset legend,
 .collection-hint {
   margin-top: 0.3rem;
   color: #8f9db0;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
 }
 .collection-list {
   display: flex;
@@ -1410,7 +1416,7 @@ fieldset legend,
   gap: 0.3rem;
   padding: 0.4rem;
   color: #c9d3de;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   line-height: 1.35;
   text-align: left;
   cursor: pointer;
@@ -1426,7 +1432,7 @@ fieldset legend,
 }
 .collection-badge {
   color: #8f9db0;
-  font: 0.6rem "DM Mono";
+  font: 0.75rem "DM Mono";
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -1458,7 +1464,7 @@ fieldset legend,
 .collection-keep {
   margin-left: auto;
   color: #8f9db0;
-  font: 0.56rem "DM Mono";
+  font: 0.75rem "DM Mono";
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -1468,7 +1474,7 @@ fieldset legend,
   gap: 0.4rem;
   margin-top: 0.8rem;
   color: #8f9db0;
-  font: 0.64rem "DM Mono";
+  font: 0.75rem "DM Mono";
   letter-spacing: 0.08em;
 }
 .user-description textarea {
@@ -1480,7 +1486,7 @@ fieldset legend,
   letter-spacing: normal;
 }
 .user-description span {
-  font: 0.68rem "Manrope", sans-serif;
+  font: 0.75rem "Manrope", sans-serif;
   letter-spacing: normal;
 }
 .sequence-readout {
@@ -1524,7 +1530,7 @@ fieldset legend,
 .narration-voice {
   flex-basis: 100%;
   color: #8f9db0;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
 }
 .image-options select:disabled {
   opacity: 0.5;
@@ -1538,7 +1544,7 @@ fieldset legend,
   border: 1px solid #7a4a2a;
   background: #1f150e;
   color: #ffc49a;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
 }
 .step-readout {
   display: grid;
@@ -1550,7 +1556,7 @@ fieldset legend,
 }
 .step-readout dt {
   color: #728195;
-  font: 0.58rem "DM Mono";
+  font: 0.75rem "DM Mono";
   letter-spacing: 0.08em;
 }
 .step-readout dd {
@@ -1561,12 +1567,12 @@ fieldset legend,
 .mapping-doc {
   margin-top: 1.5rem;
   color: #9fadbf;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
 }
 .mapping-doc summary {
   cursor: pointer;
   color: #c9d3de;
-  font: 0.64rem "DM Mono";
+  font: 0.75rem "DM Mono";
   letter-spacing: 0.08em;
 }
 .mapping-doc table {
@@ -1583,7 +1589,7 @@ fieldset legend,
 }
 .mapping-doc th {
   color: #728195;
-  font: 0.58rem "DM Mono";
+  font: 0.75rem "DM Mono";
   letter-spacing: 0.08em;
 }
 @media (max-width: 800px) {
@@ -1628,7 +1634,7 @@ main:focus,
 .data-table summary {
   cursor: pointer;
   color: #c9d3de;
-  font: 0.68rem "DM Mono";
+  font: 0.75rem "DM Mono";
   letter-spacing: 0.06em;
 }
 .table-scroll {
@@ -1673,7 +1679,7 @@ main:focus,
   flex-wrap: wrap;
   gap: 0.4rem 1.5rem;
   padding: 0.7rem 0.4rem 0.2rem;
-  font: 0.68rem "DM Mono";
+  font: 0.75rem "DM Mono";
 }
 .map-regions b,
 .map-marker {
@@ -1722,7 +1728,7 @@ main:focus,
 .image-caption {
   margin-top: 0.6rem;
   color: #a9b6c6;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   line-height: 1.6;
   text-wrap: pretty;
 }
@@ -1825,7 +1831,7 @@ main:focus,
   justify-items: start;
 }
 .data-status-line {
-  font: 0.68rem "DM Mono";
+  font: 0.75rem "DM Mono";
   color: #a9b6c6;
   line-height: 1.6;
 }
@@ -1852,7 +1858,7 @@ main:focus,
   border-radius: 3px;
   color: #e3ebf4;
   background: #0f2236;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   cursor: pointer;
 }
 .retry-button[aria-disabled="true"] {
@@ -1865,7 +1871,7 @@ main:focus,
 .map-fallback {
   margin-top: 1rem;
   color: #a9b6c6;
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   line-height: 1.6;
 }
 .map-fallback {
@@ -1896,7 +1902,7 @@ td.no-data {
   flex-wrap: wrap;
   align-items: center;
   gap: 1rem 2rem;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   color: #a9b6c6;
 }
 .map-layer-toggle {
@@ -1918,13 +1924,13 @@ td.no-data {
 .map-legend-ticks {
   display: flex;
   justify-content: space-between;
-  font: 0.6rem "DM Mono";
+  font: 0.75rem "DM Mono";
   color: #a9b6c6;
 }
 .map-layer-note {
   margin-top: 0.6rem;
   color: #8f9db0;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   line-height: 1.6;
   text-wrap: pretty;
 }
@@ -1938,7 +1944,7 @@ td.no-data {
 .eic-links p {
   margin-top: 0.5rem;
   color: #8190a3;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
 }
 @media (max-width: 800px) {
   .eic-links {
