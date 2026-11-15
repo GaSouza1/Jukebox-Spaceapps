@@ -1,22 +1,36 @@
 /**
  * Single source of truth for the region-comparison sonification: the mapping
- * constants the player uses, and the text that describes them. Both the player
- * (screen-reader description) and the guided experience (visible text) render
- * from here, so the two can never diverge.
+ * constants and the text that describes them. The player (screen-reader
+ * description before Play) and the guided experience (visible text) render
+ * from here, and the numbers come from the same functions the score uses
+ * (comparisonScale, valueToFrequency), so text and sound can never diverge.
  */
-import { formatMonth, indicators, type IndicatorId } from "../data/demoData";
-import { describeSeries, round } from "../data/seriesStats";
-import type { RegionSeries } from "../../types/data";
-import type { PlaybackMode } from "../../stores/comparisonStore";
+import type { ComparisonData } from "../data/comparison";
+import { formatDay, formatLongMonth } from "../data/format";
+import { indicatorOf } from "../data/indicators";
+import { cellSizeKm } from "../data/regions";
+import { describeSide, round } from "../data/seriesStats";
+import { summarizeDifference } from "../data/comparison";
+import {
+  COMPARISON_PAN,
+  COMPARISON_STEP_SECONDS,
+  comparisonScale,
+  valueToFrequency,
+  type PlaybackMode,
+} from "./engine/comparisonScore";
+import { PITCH_FLOOR_HZ, PITCH_OCTAVES } from "./engine/score";
+
+export { formatLongMonth };
 
 export const COMPARISON_MAPPING = {
-  /** Both regions share this pitch range, mapped linearly from the lowest to the highest value. */
-  lowHz: 130,
-  highHz: 620,
+  /** Both regions share this pitch range, linear in octaves from the lowest to the highest value. */
+  floorHz: PITCH_FLOOR_HZ,
+  octaves: PITCH_OCTAVES,
+  topHz: PITCH_FLOOR_HZ * 2 ** PITCH_OCTAVES,
   /** One month every 500 ms at 1×. */
-  stepMs: 500,
+  stepMs: COMPARISON_STEP_SECONDS * 1000,
   /** Region A left, region B right when both play together; solo playback is centred. */
-  pan: 0.7,
+  pan: COMPARISON_PAN,
 } as const;
 
 export const REGION_SOUND = {
@@ -24,15 +38,9 @@ export const REGION_SOUND = {
   b: { timbre: "brighter triangle tone", channel: "right channel", line: "dashed orange line" },
 } as const;
 
-export function formatLongMonth(date: string) {
-  return new Intl.DateTimeFormat("en", { month: "long", year: "numeric", timeZone: "UTC" }).format(
-    new Date(`${date}-01T00:00:00Z`),
-  );
-}
-
-export function modeLabel(mode: PlaybackMode, seriesA: RegionSeries, seriesB: RegionSeries) {
-  if (mode === "a") return `Region A, ${seriesA.region.name}, on its own`;
-  if (mode === "b") return `Region B, ${seriesB.region.name}, on its own`;
+export function modeLabel(mode: PlaybackMode, data: Pick<ComparisonData, "regionA" | "regionB">) {
+  if (mode === "a") return `Region A, ${data.regionA.name}, on its own`;
+  if (mode === "b") return `Region B, ${data.regionB.name}, on its own`;
   return `both regions together`;
 }
 
@@ -42,24 +50,47 @@ export interface SonificationDescription {
   durationSeconds: number;
 }
 
+const hz = (value: number) => Math.round(value);
+
 export function describeComparisonSonification(
-  seriesA: RegionSeries,
-  seriesB: RegionSeries,
+  data: ComparisonData,
   speed: number,
   mode: PlaybackMode,
 ): SonificationDescription {
-  const indicator = indicators[seriesA.indicator as IndicatorId];
-  const unit = indicator.unit;
-  const all = [...seriesA.data, ...seriesB.data].map((p) => p.value);
-  const min = Math.min(...all);
-  const max = Math.max(...all);
-  const months = seriesA.data.length;
-  const first = seriesA.data[0]?.date;
-  const last = seriesA.data.at(-1)?.date;
-  const durationSeconds = Math.round((months * COMPARISON_MAPPING.stepMs) / 1000 / speed);
-  const statsA = describeSeries(seriesA);
-  const statsB = describeSeries(seriesB);
-  const gap = statsA.mean - statsB.mean;
+  const indicator = indicatorOf(data.indicatorId);
+  const { regionA: a, regionB: b, spokenUnit: u } = data;
+  const months = data.rows.length;
+  const stepSeconds = COMPARISON_STEP_SECONDS / speed;
+  const durationSeconds = Math.round(months * stepSeconds);
+  const statsA = describeSide(data.rows, "a");
+  const statsB = describeSide(data.rows, "b");
+  const diff = summarizeDifference(data);
+  const scale = comparisonScale(data.rows);
+  const cellA = cellSizeKm(a.latitude);
+  const cellB = cellSizeKm(b.latitude);
+  const source = data.provenance.a;
+
+  const mean = (name: string, s: typeof statsA) =>
+    s.mean === null
+      ? `${name} has no data in this period.`
+      : `${name} averages ${round(s.mean)} ${u} (from ${s.minPoint!.value} to ${s.maxPoint!.value}).`;
+  const gap =
+    diff.meanDifference === null
+      ? "No month has data for both regions."
+      : `In the ${diff.monthsUsed} months with data for both, ${a.name} is on average ${Math.abs(round(diff.meanDifference))} ${u} ${diff.meanDifference >= 0 ? "higher" : "lower"} than ${b.name}.`;
+
+  const pitch = !scale.domain
+    ? "There are no values to play."
+    : scale.flat
+      ? `Every value in this comparison is about ${round(scale.domain.min)} ${u}, so every note plays at the same pitch, ${hz(valueToFrequency(scale.domain.min, scale))} hertz.`
+      : `Each month plays one short note per region. Pitch represents the value: the higher the ${indicator.shortLabel.toLowerCase()}, the higher the note. Both regions share one scale, from ${hz(valueToFrequency(scale.domain.min, scale))} hertz for the lowest value in this comparison (${scale.domain.min} ${u}) to ${hz(valueToFrequency(scale.domain.max, scale))} hertz for the highest (${scale.domain.max} ${u}), so equal values sound at equal pitch. The scale is even in musical steps: equal differences in ${indicator.shortLabel.toLowerCase()} sound as equal intervals, anywhere in the range. Loudness does not change with the data.`;
+
+  const missingA = statsA.missing;
+  const missingB = statsB.missing;
+  const missing =
+    missingA || missingB
+      ? `Months without data: ${a.name} ${missingA}, ${b.name} ${missingB}. During a month without data that region is silent; the silence is a gap in the data, not a low value.`
+      : "Every month has data for both regions.";
 
   return {
     durationSeconds,
@@ -67,42 +98,39 @@ export function describeComparisonSonification(
       {
         id: "what",
         label: "What you will hear",
-        text: `A sound representation of the line chart “Monthly ${indicator.shortLabel.toLowerCase()} history”, playing ${modeLabel(mode, seriesA, seriesB)}.`,
+        text: `A sound representation of the line chart “Monthly ${indicator.shortLabel.toLowerCase()} history”, playing ${modeLabel(mode, data)}.`,
       },
       {
         id: "variable",
         label: "Variable",
-        text: `${indicator.label}, in ${unit}. ${indicator.description}`,
+        text: `${indicator.label}, in ${u}. ${indicator.description}`,
       },
       {
         id: "regions",
         label: "Regions",
-        text: `Region A is ${seriesA.region.name}, ${seriesA.region.country}. Region B is ${seriesB.region.name}, ${seriesB.region.country}.`,
+        text: `Region A is ${a.name}, ${a.country}. Region B is ${b.name}, ${b.country}. Each value describes a grid cell of about ${cellA.northSouth} by ${cellA.eastWest} km around ${a.name} and ${cellB.northSouth} by ${cellB.eastWest} km around ${b.name}, not the cities alone.`,
       },
       {
         id: "period",
         label: "Period and duration",
-        text: `${first ? formatLongMonth(first) : ""} to ${last ? formatLongMonth(last) : ""}: ${months} months, one month every ${Number((COMPARISON_MAPPING.stepMs / 1000 / speed).toFixed(2))} seconds, about ${durationSeconds} seconds in total at ${speed}× speed.`,
+        text: `${formatLongMonth(data.period.start)} to ${formatLongMonth(data.period.end)}: ${months} months, one month every ${Number(stepSeconds.toFixed(2))} seconds, about ${durationSeconds} seconds in total at ${speed}× speed.`,
       },
+      { id: "missing", label: "Missing months", text: missing },
       {
         id: "values",
         label: "Values",
-        text: `${seriesA.region.name} averages ${round(statsA.mean)} ${unit} (from ${statsA.minPoint.value} to ${statsA.maxPoint.value}). ${seriesB.region.name} averages ${round(statsB.mean)} ${unit} (from ${statsB.minPoint.value} to ${statsB.maxPoint.value}). On average, ${seriesA.region.name} is ${Math.abs(round(gap))} ${unit} ${gap >= 0 ? "higher" : "lower"} than ${seriesB.region.name}.`,
+        text: `${mean(a.name, statsA)} ${mean(b.name, statsB)} ${gap}`,
       },
-      {
-        id: "pitch",
-        label: "How values become sound",
-        text: `Each month plays one short note per region. Pitch represents the value: the higher the ${indicator.shortLabel.toLowerCase()}, the higher the note. Both regions share one scale, from ${COMPARISON_MAPPING.lowHz} hertz for the lowest value in this comparison (${min} ${unit}) to ${COMPARISON_MAPPING.highHz} hertz for the highest (${max} ${unit}), so equal values sound at equal pitch. Rising and falling melodies follow the month-to-month changes in the data.`,
-      },
+      { id: "pitch", label: "How values become sound", text: pitch },
       {
         id: "identities",
         label: "Timbres and channels",
-        text: `${seriesA.region.name} (Region A) is a ${REGION_SOUND.a.timbre}, in the ${REGION_SOUND.a.channel} when both regions play together. ${seriesB.region.name} (Region B) is a ${REGION_SOUND.b.timbre}, in the ${REGION_SOUND.b.channel}. A region played on its own is centred, so it can be heard on any speaker or with one earphone.`,
+        text: `${a.name} (Region A) is a ${REGION_SOUND.a.timbre}, in the ${REGION_SOUND.a.channel} when both regions play together. ${b.name} (Region B) is a ${REGION_SOUND.b.timbre}, in the ${REGION_SOUND.b.channel}. A region played on its own is centred, so it can be heard on any speaker or with one earphone.`,
       },
       {
         id: "data",
         label: "Data source",
-        text: "Values are synthetic demonstration data, not NASA measurements.",
+        text: `NASA POWER (${source.product}${source.apiVersion ? `, API ${source.apiVersion}` : ""}), from the MERRA-2 reanalysis, retrieved ${formatDay(source.retrievedAt)}. A reanalysis combines observations with a weather model; it is not a single weather station.`,
       },
     ],
   };

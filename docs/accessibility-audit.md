@@ -367,3 +367,46 @@ Sem mudança visual. Nenhum mapeamento científico foi alterado.
 1. **Chrome real com "Traduzir para português"**, nos três momentos pedidos: página aberta já traduzida, tradução pedida depois de carregar, e conteúdo dinâmico atualizado após a tradução. Verificar o guia completo, as dicas `.sr-only`, nomes e descrições dos controles e as descrições científicas. Também mudar região e variável, tocar e parar os áudios.
 2. **NVDA + Chrome e VoiceOver + Safari** com a página traduzida. Anotar à parte os erros de tradução e os de pronúncia.
 3. Confirmar se as mensagens de status são anunciadas em inglês ou em português.
+
+## Atualização — comparação com dados reais da NASA (15/11/2026)
+
+A comparação passou a usar dados reais do NASA POWER, carregados pela rede. Isso trouxe estados novos (carregamento, erro, meses sem dado) e um motor de áudio compartilhado com a sonificação de imagem. Detalhes técnicos: [`FEATURE_COMPARISON_IMPLEMENTATION_REPORT.md`](FEATURE_COMPARISON_IMPLEMENTATION_REPORT.md).
+
+### Mudanças com impacto em acessibilidade
+
+- **Carregamento e conclusão** em `role="status"`, uma mensagem cada ("Loading NASA POWER data for…", "NASA POWER data loaded for…: 240 months… No month is missing."). Uma região já em memória não gera anúncio extra.
+- **Erro** em `role="alert"`, com a região e a causa, e botão "Try again". Durante a nova tentativa o botão continua no lugar com `aria-disabled`; quando os dados chegam e ele some, o foco vai para a linha de status, nunca para `<body>`.
+- **Play da comparação** nunca sai da ordem de Tab: com dados indisponíveis ou regiões não comparáveis, fica com `aria-disabled="true"` e `aria-describedby` para o motivo, também visível.
+- **Meses sem dado:** "No data" na tabela, lacuna no gráfico, contagem no resumo e na descrição antes do áudio, e silêncio na voz da região. A descrição explica que o silêncio é falta de dado, não valor baixo.
+- **Unidades por extenso** nos textos lidos ("degrees Celsius"); a tela continua mostrando "°C".
+- **Proveniência real** no resumo do gráfico e na descrição antes do áudio (NASA POWER, MERRA-2, versão da API, data da consulta), e o tamanho da célula de grade junto de cada região.
+- **Regiões sem depender de cor:** letras A/B, linha sólida e tracejada, timbre, canal e nome em cada texto (sem mudança). A mesma região não pode ser escolhida dos dois lados; a opção fica desabilitada com o texto "(selected as Region B)".
+- **Rótulo visível** "Playback position" no slider (TA-05 / A-11).
+- **Mapa:** sem WebGL2, um texto substitui o mapa e o resto da página funciona (NA-01 resolvido para a comparação). A camada GIBS tem descrição textual (legenda em °C, mês, aviso de mês sem imagem) e pode ser ocultada por uma caixa de seleção.
+- **Sem voz própria:** a comparação não usa `speechSynthesis`; o leitor de tela continua sendo o único narrador dela.
+- **Nenhum anúncio por mês durante a reprodução.** Pausa anuncia o mês e os dois valores.
+- **Uma sonificação por vez:** iniciar a imagem para a comparação (e vice-versa), e cada player anuncia o motivo.
+
+### Testes executados (15/11/2026)
+
+**Automatizados (`npm test`):** `dataStatus.test.ts` (textos e regra de uma mensagem por mudança), `describeSonification.test.ts` (descrição com os mesmos números da partitura, unidades por extenso, silêncio), mais os testes de dados e de partitura.
+
+**No Chrome real (headless, via DevTools Protocol, cliques e teclas de usuário), build de produção e servidor de desenvolvimento, 33/33 em cada:**
+
+| Verificação | Resultado |
+| --- | --- |
+| Descrição antes do áudio com hertz, unidades por extenso, fonte real | Passou |
+| Linha do gráfico, linha da tabela (`aria-current`), leitura e `aria-valuetext` do slider acompanham o mês tocado | Passou |
+| Pausa anuncia "Paused at June 2006: Manaus 25.8 degrees Celsius, New York 19.41 degrees Celsius." | Passou |
+| Slider por teclado (End, Home, →) move a posição e o som continua dali | Passou |
+| Iniciar a imagem para a comparação e anuncia o motivo; e o inverso | Passou |
+| Bloqueio da API: alerta, Play focável com `aria-disabled` e motivo; "Try again" por Enter carrega e o foco termina na linha de status | Passou |
+| Sem WebGL2: texto no lugar do mapa, tabela e player disponíveis | Passou |
+| Guia (etapa 4) com os mesmos números da página | Passou |
+
+### Validação manual pendente
+
+- VoiceOver (macOS/Safari) e NVDA (Windows/Firefox e Chrome) com dados reais: ordem e quantidade de anúncios ao carregar, falhar e tentar de novo; leitura de "No data"; pronúncia de "°C" na tabela; slider e `aria-valuetext`.
+- Escuta das duas vozes (seno e triângulo) com fones e com um alto-falante só.
+- Contraste do texto "No data" (`#ffc49a`) e da legenda do mapa no alto contraste.
+

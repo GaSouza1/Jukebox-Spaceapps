@@ -9,12 +9,12 @@ const sections = [
   {
     number: "02",
     title: "Data sources",
-    body: "The planned production pipeline uses NASA POWER for analysis-ready climate data, NASA GIBS for global imagery, and the NASA Earth Information Center for context. This MVP is not connected to those services and labels every synthetic value as Demo Data.",
+    body: "Every value in the comparison comes from the NASA POWER monthly point API: mean air temperature at 2 meters (T2M) from the MERRA-2 reanalysis, requested directly from NASA for each region. A value describes a grid cell of about 55 by 60–70 km, not a weather station. The map shows the matching NASA GIBS layer (MERRA-2 2-meter air temperature) as visual context only, and the methodology section links to related Earth Information Center pages, which offer no data API.",
   },
   {
     number: "03",
     title: "Sonification methodology",
-    body: "Monthly values are normalized against the minimum and maximum in the active comparison, and both regions share that one pitch scale, so equal values sound at equal pitch. Region A uses a soft sine tone in the left channel and Region B a brighter triangle tone in the right channel, while time moves chronologically at the selected speed. Before playing, screen readers receive a description of what the sound represents.",
+    body: "Monthly values are placed on one pitch scale shared by both regions, from the lowest value of the active comparison (261.6 Hz, C4) to the highest (1046.5 Hz, C6). The scale is even in musical steps, so equal values sound at equal pitch and equal differences sound as equal intervals. Region A uses a soft sine tone in the left channel and Region B a brighter triangle tone in the right channel; one month lasts half a second at 1× speed, and a month without data is silent. Before playing, screen readers receive a description of what the sound represents.",
   },
   {
     number: "04",

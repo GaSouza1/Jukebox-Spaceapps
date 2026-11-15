@@ -1,98 +1,154 @@
 /**
- * ScientificLayer — one note per data step, exact mapped values, no quantisation.
- * CinematicLayer  — slow consonant harmony underneath; never touches the
- *                   scientific voices, their pitch, timing or level.
+ * ScientificLayer — plays a SonificationScore: at each step, one note per
+ *                   voice (null = silence), exact values, no quantisation.
+ *                   Each voice sounds on its own InstrumentManager channel.
+ * CinematicLayer  — plays the evolving background planned by cinematicComposer;
+ *                   it gets no data and never touches the scientific voices,
+ *                   their pitch, timing or level.
  */
 import * as Tone from "tone";
-import { SECTION_LENGTH, type CinematicSection, type ScientificEvent } from "./dataMapper";
+import {
+  intensityAt,
+  type ChordSpan,
+  type CinematicEvent,
+  type CinematicPlan,
+} from "./cinematicComposer";
 import type { InstrumentManager } from "./instrumentManager";
+import type { SonificationScore } from "./score";
 
 /** Notes last 90 % of a step so consecutive events never smear into each other. */
 const NOTE_LENGTH = 0.9;
 
 export class ScientificLayer {
-  constructor(private readonly instruments: InstrumentManager) {}
+  constructor(
+    private readonly instruments: InstrumentManager,
+    private readonly score: SonificationScore,
+  ) {}
 
-  play(event: ScientificEvent, time: number, stepSeconds: number) {
-    this.instruments.setScientificPan(event.pan, time);
-    this.instruments.scientific[event.timbre].triggerAttackRelease(
-      event.frequency,
-      stepSeconds * NOTE_LENGTH,
-      time,
-      event.velocity,
-    );
+  play(stepIndex: number, time: number, stepSeconds: number) {
+    for (const voice of this.score.voices) {
+      const note = voice.notes[stepIndex];
+      if (!note) continue;
+      if (note.pan !== undefined) this.instruments.setChannelPan(voice.id, note.pan, time);
+      this.instruments
+        .channelVoice(voice.id, note.timbre ?? voice.timbre)
+        .triggerAttackRelease(note.frequency, stepSeconds * NOTE_LENGTH, time, note.velocity);
+    }
   }
 }
 
-interface Chord {
-  name: string;
-  /** MIDI note for the low piano bass. */
-  bass: number;
-  /** MIDI notes for pad/strings, all kept below C4 (the scientific floor). */
-  tones: number[];
-}
+/** One bar of 4/4 in eighth-note steps. */
+const BAR_STEPS = 8;
+const toHz = (notes: number[]) => notes.map((midi) => Tone.mtof(midi as Tone.Unit.MidiNote));
 
 /**
- * Diatonic chords of C major / A minor ordered from darker (minor) to brighter
- * (major). Close voicings with shared tones give smooth voice-leading.
+ * Plays a CinematicPlan on the shared Transport clock: each step triggers the
+ * events planned for it (sub-step events are offset inside the step), with
+ * durations converted at the current tempo, so speed changes, pause and
+ * resume follow the same clock as the data notes. Nothing is scheduled beyond
+ * the current step.
  */
-const CHORD_LADDER: Chord[] = [
-  { name: "Am", bass: 45, tones: [48, 52, 57] },
-  { name: "Em", bass: 40, tones: [47, 52, 55] },
-  { name: "Dm", bass: 38, tones: [50, 53, 57] },
-  { name: "F", bass: 41, tones: [48, 53, 57] },
-  { name: "C", bass: 36, tones: [48, 52, 55] },
-  { name: "G", bass: 43, tones: [47, 50, 55] },
-];
-
-export function chordForSection(section: CinematicSection): Chord {
-  return CHORD_LADDER[Math.round(section.brightnessRank * (CHORD_LADDER.length - 1))];
-}
-
 export class CinematicLayer {
-  /** When true, the next step re-voices the current chord (after a resume). */
+  /** When true, the next step re-voices the chord in progress (after a resume). */
   private needsResync = true;
+  private readonly byStep = new Map<number, CinematicEvent[]>();
+  private readonly chordStarts = new Map<number, ChordSpan>();
+  private readonly instruments: InstrumentManager;
+  private readonly plan: CinematicPlan;
 
-  constructor(
-    private readonly instruments: InstrumentManager,
-    private readonly sections: CinematicSection[],
-  ) {}
+  constructor(instruments: InstrumentManager, plan: CinematicPlan) {
+    this.instruments = instruments;
+    this.plan = plan;
+    for (const chord of plan.chords) this.chordStarts.set(chord.start, chord);
+    for (const event of plan.events) {
+      const list = this.byStep.get(event.step) ?? [];
+      list.push(event);
+      this.byStep.set(event.step, list);
+    }
+  }
 
   resync() {
     this.needsResync = true;
   }
 
   play(stepIndex: number, time: number, stepSeconds: number) {
-    const section = this.sections[Math.floor(stepIndex / SECTION_LENGTH)];
-    if (!section) return;
-    const offset = stepIndex - section.startStep;
-    const chord = chordForSection(section);
-
-    if (offset === 0 || this.needsResync) {
+    if (this.needsResync) {
       this.needsResync = false;
-      const seconds = (SECTION_LENGTH - offset) * stepSeconds;
-      const tones = chord.tones.map((midi) => Tone.mtof(midi as Tone.Unit.MidiNote));
-      const { pad, strings, stringsFilter, cinematicPiano } = this.instruments;
+      this.revoice(stepIndex, time, stepSeconds);
+    }
+    // Level follows the intensity curve bar by bar, whatever the chord lengths
+    // (a contemplative image has only 3–4 long chords).
+    if (stepIndex % BAR_STEPS === 0) {
+      const ahead = (stepIndex + BAR_STEPS) / this.plan.totalSteps;
+      this.instruments.setCinematicIntensity(intensityAt(ahead), BAR_STEPS * stepSeconds, time);
+    }
+    const chord = this.chordStarts.get(stepIndex);
+    // Timbre glides over each chord, so profile changes are never sudden.
+    if (chord) this.instruments.setCinematicTone(chord.tone, chord.steps * stepSeconds, time);
+    for (const event of this.byStep.get(stepIndex) ?? []) {
+      this.trigger(event, event.steps, time + event.offset * stepSeconds, stepSeconds);
+    }
+  }
 
-      pad.triggerAttackRelease(tones, seconds, time, 0.55);
-      // Local data variability opens the strings: calm data → just the pad.
-      stringsFilter.frequency.rampTo(450 + 1100 * section.activity, seconds * 0.5, time);
-      strings.triggerAttackRelease(tones, seconds, time, 0.12 + 0.45 * section.activity);
-      if (offset === 0) {
-        cinematicPiano.triggerAttackRelease(
-          Tone.mtof(chord.bass as Tone.Unit.MidiNote),
-          seconds,
-          time,
-          0.28,
-        );
+  /** After a pause: level, timbre and the sustained textures of the current chord. */
+  private revoice(stepIndex: number, time: number, stepSeconds: number) {
+    const chord = this.plan.chords.find(
+      (c) => stepIndex > c.start && stepIndex < c.start + c.steps,
+    );
+    if (!chord) return; // on a chord change the planned events voice it anyway
+    const remaining = chord.start + chord.steps - stepIndex;
+    this.instruments.setCinematicIntensity(
+      intensityAt(stepIndex / this.plan.totalSteps),
+      0.5,
+      time,
+    );
+    // Come back promptly: a contemplative pad would otherwise take 3 s to fade in.
+    this.instruments.setCinematicTone(
+      { ...chord.tone, padAttack: 0.3, stringsAttack: 0.3 },
+      0.5,
+      time,
+    );
+    for (const event of this.byStep.get(chord.start) ?? []) {
+      if (event.voice === "pad" || event.voice === "strings" || event.voice === "drone") {
+        this.trigger(event, Math.min(event.steps, remaining), time, stepSeconds);
       }
-    } else if (offset === SECTION_LENGTH / 2) {
-      this.instruments.cinematicPiano.triggerAttackRelease(
-        Tone.mtof((chord.bass + 7) as Tone.Unit.MidiNote),
-        (SECTION_LENGTH / 2) * stepSeconds,
-        time,
-        0.18,
-      );
+    }
+    // Envelopes are read when a note starts, so the profile's can be restored now.
+    this.instruments.setCinematicTone(chord.tone, remaining * stepSeconds, time);
+  }
+
+  private trigger(event: CinematicEvent, steps: number, time: number, stepSeconds: number) {
+    const seconds = steps * stepSeconds;
+    const { pad, strings, stringsFilter, drone, glint, cinematicPiano, cinematicFigures } =
+      this.instruments;
+    switch (event.voice) {
+      case "pad":
+        pad.triggerAttackRelease(toHz(event.notes), seconds, time, event.velocity);
+        break;
+      case "strings":
+        this.instruments.setStringsPan(event.pan, time);
+        // Each phrase opens the strings a little more with the level of the moment.
+        stringsFilter.frequency.rampTo(
+          this.instruments.stringsBase * (0.7 + event.velocity),
+          Math.max(0.1, seconds * 0.5),
+          time,
+        );
+        strings.triggerAttackRelease(toHz(event.notes), seconds, time, event.velocity);
+        break;
+      case "drone":
+        drone.triggerAttackRelease(toHz(event.notes), seconds, time, event.velocity);
+        break;
+      case "bass":
+        cinematicPiano.triggerAttackRelease(toHz(event.notes)[0], seconds, time, event.velocity);
+        break;
+      case "piano":
+        this.instruments.setFiguresPan(event.pan, time);
+        cinematicFigures.triggerAttackRelease(toHz(event.notes)[0], seconds, time, event.velocity);
+        break;
+      case "glint":
+        this.instruments.setFiguresPan(event.pan, time);
+        glint.triggerAttackRelease(toHz(event.notes)[0], seconds, time, event.velocity);
+        break;
     }
   }
 }

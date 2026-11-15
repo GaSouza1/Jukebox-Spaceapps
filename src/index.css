@@ -1815,3 +1815,135 @@ main:focus,
   color: #8ac8ff;
   font-weight: 600;
 }
+
+/* Comparison with NASA POWER data: loading, errors, missing values, map layer */
+.data-status {
+  margin: -2rem 0 2.5rem;
+  display: grid;
+  gap: 0.6rem;
+  justify-items: start;
+}
+.data-status-line {
+  font: 0.68rem "DM Mono";
+  color: #a9b6c6;
+  line-height: 1.6;
+}
+.data-status-line i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 0.4rem;
+  background: #47a9ff;
+}
+.data-status-line.loading i {
+  background: #ff9b55;
+}
+.data-status ul.sonification-alert {
+  margin-top: 0;
+  padding-left: 1.6rem;
+  list-style: disc;
+}
+.retry-button {
+  min-height: 2.25rem;
+  padding: 0.4rem 1rem;
+  border: 1px solid #8ac8ff;
+  border-radius: 3px;
+  color: #e3ebf4;
+  background: #0f2236;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.retry-button[aria-disabled="true"] {
+  border-color: #566d85;
+  color: #a9b6c6;
+  cursor: progress;
+}
+.chart-pending,
+.player-unavailable,
+.map-fallback {
+  margin-top: 1rem;
+  color: #a9b6c6;
+  font-size: 0.74rem;
+  line-height: 1.6;
+}
+.map-fallback {
+  min-height: 8rem;
+  display: grid;
+  place-content: center;
+  padding: 2rem;
+  border: 1px dashed #38495d;
+  text-align: center;
+}
+.play-button[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.position-label {
+  color: #a9b6c6;
+}
+.region-selector p.cell-note {
+  margin-top: 0.5rem;
+}
+td.no-data {
+  color: #ffc49a;
+  font-style: italic;
+}
+.map-layer-panel {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 2rem;
+  font-size: 0.68rem;
+  color: #a9b6c6;
+}
+.map-layer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+.map-legend {
+  display: grid;
+  gap: 0.25rem;
+  min-width: min(260px, 100%);
+}
+.map-legend-bar {
+  display: block;
+  height: 8px;
+  border-radius: 2px;
+}
+.map-legend-ticks {
+  display: flex;
+  justify-content: space-between;
+  font: 0.6rem "DM Mono";
+  color: #a9b6c6;
+}
+.map-layer-note {
+  margin-top: 0.6rem;
+  color: #8f9db0;
+  font-size: 0.68rem;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+.eic-links {
+  grid-column: 2;
+  margin-top: 2.5rem;
+}
+.eic-links h3 {
+  font-size: 0.83rem;
+}
+.eic-links p {
+  margin-top: 0.5rem;
+  color: #8190a3;
+  font-size: 0.72rem;
+}
+@media (max-width: 800px) {
+  .eic-links {
+    grid-column: 1;
+  }
+}
+.high-contrast :is(.data-status-line, .chart-pending, .player-unavailable, .map-layer-note, .map-legend-ticks, .eic-links p) {
+  color: #f4f8fc;
+}

@@ -636,6 +636,47 @@ A comparação só deve ser considerada concluída quando **todos** os itens aba
 
 **Em paralelo, sem bloquear a primeira tarefa:** registrar as decisões D-01 (variáveis), D-13 (narração) e D-10 (papel da coleção de imagens) **antes** de commitar o trabalho em andamento na sonificação de imagem (AC-14).
 
+## 16. Situação após a implementação (15/11/2026)
+
+A comparação foi implementada com dados reais do NASA POWER (MVP: `T2M`), seguindo [`FEATURE_COMPARISON_IMPLEMENTATION_REPORT.md`](FEATURE_COMPARISON_IMPLEMENTATION_REPORT.md). Evidências: `npm test` (170 testes passando) e 33 verificações no Chrome real contra o build de produção e o servidor de desenvolvimento, com chamadas reais à NASA. Nenhuma validação com leitor de tela foi feita.
+
+### 16.1 Problemas `AC-`
+
+| ID | Situação | Como |
+| --- | --- | --- |
+| AC-01 | **Resolvido** | Mock removido; série real. Teste de sanidade com dado real gravado: mês mais quente de Londres entre junho e agosto |
+| AC-02 | **Resolvido** | Altura linear em oitavas, C4–C6 (`normToFrequency`, a mesma função da imagem) |
+| AC-03 | **Aberto (decisão D-12: não no MVP)** | A diferença continua implícita no intervalo entre as duas notas |
+| AC-04 | **Mitigado** | Média anual só com anos completos; o resumo diz que dois anos isolados não mostram tendência |
+| AC-05 | **Resolvido** | Unidade única (`ComparisonData.unit`, do catálogo); a unidade da API é só verificada |
+| AC-06 | **Resolvido** | `alignByDate`; nenhum componente lê uma série pelo índice da outra |
+| AC-07 | **Resolvido** | A região escolhida de um lado fica desabilitada (com texto) no outro; `same_region` em `checkCompatibility` |
+| AC-08 | **Resolvido** | Confirmado na API: o POWER usa a célula mais próxima. A interface mostra o tamanho da célula; `same_grid_cell` bloqueia dois pontos na mesma célula |
+| AC-09, AC-10, AC-11 | **Abertos** | Imagens térmicas, IMERG, MODIS e Meteomatics ficaram fora do MVP. A camada GIBS usada é a de temperatura do ar (não LST) |
+| AC-12 | **Parcial** | Contrato de unidade por indicador (`source`, `display`, `spoken`); só `T2M` implementado |
+| AC-13 | **Resolvido para POWER e GIBS** | CORS `*` verificado; nenhum backend nem credencial |
+| AC-14 | **Fora do escopo** | Decisão sobre narração da imagem continua pendente (D-13) |
+| AC-15 | **Aberto** | `relatorio-implementacao.md` não foi alterado |
+| AC-16 | **Parcial** | MVP compara valores absolutos (D-05); anomalia e variação só existem como contrato (`Measure`) |
+| AC-17 | **Resolvido** | Catálogo tipado (`indicators.ts`); a store guarda `IndicatorId` |
+| AC-18 | **Resolvido** | O mock foi removido |
+| AC-19 | **Resolvido** | Testes de parse, cliente, alinhamento, compatibilidade, diferenças, partitura, exclusividade, textos e store |
+| AC-20 | **Aberto (D-10)** | A sonificação de imagem continua no topo da Explore |
+
+### 16.2 Decisões tomadas para o MVP
+
+| ID | Decisão adotada |
+| --- | --- |
+| D-05 | Comparar valores absolutos |
+| D-08 | Sem backend: só POWER e GIBS, chamados do navegador |
+| D-09 | Falha da NASA → erro explícito e "Try again"; nunca dados sintéticos |
+| D-11 | Escala de altura em oitavas |
+| D-12 | Sem voz de diferença no MVP |
+| D-16 (relatório) | Identidades mantidas: seno à esquerda (A), triângulo à direita (B) |
+| Q-01/Q-05 (relatório) | Período padrão: últimos 20 anos completos; ano corrente incompleto fora dos seletores |
+
+As demais decisões (D-01 a D-04, D-06, D-07, D-10, D-13 a D-15) continuam abertas.
+
 ## Fontes consultadas
 
 - Código em `src/` no commit `f5821b3` e no working tree de 15/11/2026; histórico do Git (`git log --all`, `origin/main:EIC.json`).

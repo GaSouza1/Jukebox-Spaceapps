@@ -21,6 +21,7 @@ const item = (id: string): SequenceItem => ({ id, analysis: analysisOf(id), narr
 
 function setup(ids = ["a", "b", "c"]) {
   const log: string[] = [];
+  let sessionCount = 0;
   const statuses: PlaybackStatus[] = [];
   const warnings: (string | null)[] = [];
   let current: { id: string | null; phase: SequencePhase | null } = { id: null, phase: null };
@@ -42,6 +43,7 @@ function setup(ids = ["a", "b", "c"]) {
   };
   const composition = {
     prepare: async () => {},
+    newSession: () => void sessionCount++,
     async play(analysis: ImageAnalysis) {
       log.push(`compose:${(analysis as unknown as { tag: string }).tag}`);
     },
@@ -63,6 +65,7 @@ function setup(ids = ["a", "b", "c"]) {
   return {
     player,
     narrator,
+    sessions: () => sessionCount,
     log,
     statuses,
     warnings,
@@ -113,6 +116,20 @@ describe("neighbourId", () => {
 });
 
 describe("SequencePlayer", () => {
+  it("starts a new cinematic session on Play only, not on next, advance or loop", async () => {
+    const t = setup(["a", "b"]);
+    t.player.setLoop(true);
+    t.player.play("a");
+    await flush();
+    t.player.next();
+    await flush();
+    await t.playThrough();
+    assert.equal(t.sessions(), 1);
+    t.player.stop();
+    t.player.play("a");
+    assert.equal(t.sessions(), 2);
+  });
+
   beforeEach(() => mock.timers.enable({ apis: ["setTimeout"] }));
   afterEach(() => mock.timers.reset());
 

@@ -5,7 +5,8 @@ Each image becomes a short (≈29 s at 1×) composition, preceded by a spoken
 description. There are three independent layers:
 
 - **Scientific layer**: one note per image slice, with values that can be audited.
-- **Cinematic layer**: slow, consonant harmony underneath. It sets the mood only.
+- **Cinematic layer**: an evolving background composition underneath. It sets
+  the mood only and receives no data from the image.
 - **Narration layer**: a spoken description of the image, played before its
   composition. It uses the browser's speech synthesis and carries no data notes.
 
@@ -30,7 +31,8 @@ sonify that value instead of luma.
 | -------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
 | ImageAnalyzer                    | `engine/imageAnalyzer.ts`                                                                  | Downscale (≤ 480 px), cut into 96 slices, compute raw features                              |
 | DataMapper                       | `engine/dataMapper.ts`                                                                     | The only place data becomes sound parameters                                                |
-| ScientificLayer / CinematicLayer | `engine/layers.ts`                                                                         | Turn mapped parameters into notes                                                           |
+| ScientificLayer / CinematicLayer | `engine/layers.ts`                                                                         | Turn mapped parameters into notes; play the cinematic plan on the Transport clock           |
+| CinematicComposer                | `engine/cinematicComposer.ts`                                                              | Plans the cinematic music from the duration and seeds only (no image data)                  |
 | InstrumentManager                | `engine/instrumentManager.ts`                                                              | Tone.js nodes, buses, samples, fallback, disposal                                           |
 | SynchronizationManager           | `engine/synchronization.ts`                                                                | Step index from the Transport clock, UI updates via `Tone.Draw`                             |
 | PlaybackController               | `engine/playbackController.ts`                                                             | Play / pause / resume / stop, speed, volume, layer toggles                                  |
@@ -80,25 +82,112 @@ data note is dropped.
 
 ## Cinematic layer (mood only)
 
-- **Chords:** one chord per 16 slices.
-  - The chord is chosen from Am, Em, Dm, F, C, G (darkest to brightest) by the
-    section's _relative_ mean luma.
-  - The progression stays inside one key and uses close voicings that share
-    tones.
-- **Instruments:**
-  - Pad: `PolySynth`, fat triangle, 2.2 s attack, 3.5 s release.
-  - Strings: fat sawtooth through a low-pass filter.
-  - Sampled piano: a soft low root at each section start and the fifth halfway
-    through the section.
-- **Variation:** the section's mean slice-to-slice variation opens the strings
-  filter (450 → 1550 Hz) and raises their level. Calm data gives a bare pad;
-  changing data brings the strings in.
+### What reaches the cinematic layer from the image
+
+Exactly **one number per image**: `energy` (0..1), from
+`cinematicProfile(analysis)` (`engine/cinematicProfile.ts`). It picks the
+**mood** of the music: an artistic choice of atmosphere, never a reading of
+the data. A bright image does not mean warmer, drier or anything physical,
+and the UI says so ("Cinematic mood for this image… not a measurement of
+anything physical" in the text profile; a row in the mappings table).
+
+- **Inputs:** global features only, never colour alone. Weights: mean luma
+  0.55, soft share of bright slices 0.30 (each slice counts gradually between
+  luma 0.35 and 0.65, so no hard cut makes the score jump), mean in-slice
+  contrast 0.15 (normalised by 0.25).
+- **Thresholds** (`PROFILE_THRESHOLDS`, configurable): score ≤ 0.10 is fully
+  contemplative and score ≥ 0.80 fully energetic. In between, a smoothstep
+  blend: about 20 % of the brightness range is labelled "blended" (energy
+  0.15–0.85), with no jump.
+- **What the composer gets:** `composeCinematic` receives the duration, the
+  seeds and `energy`. It never sees the analysis, and no chord or note
+  depends on slice values. The Scientific layer (mapping, instruments, timing)
+  is untouched; `PlaybackController` reads the profile from the same analysis
+  but changes nothing in the scientific events.
+
+_History:_
+
+- **First version:** chords chosen by section brightness and strings by
+  brightness variation (a coarse second data channel).
+- **Previous round:** no image input at all. Every image then sounded alike,
+  because tempo, register and timbre were constant and only the chord order
+  changed.
+
+### Two profiles
+
+All parameters are interpolated continuously by `energy`
+(`profileParameters`), so a mid image is a real blend:
+
+|                 | Contemplative (0)                       | Energetic (1)                                    |
+| --------------- | --------------------------------------- | ------------------------------------------------ |
+| Harmonic rhythm | 24–32 steps per chord                   | 6–10 steps per chord                             |
+| Motion          | sustained notes, ~1 low piano per chord | arpeggio pulse (≈55 % of steps), sixteenth pairs |
+| Register        | pad A1–E3, low drone, bass E1–D♯2       | pad C3–B3, light bass, glints D6–A6              |
+| Harmony         | minor chords: i, iv, v; minor 7ths      | major chords: III, VI, VII; add9 colours         |
+| Strings         | slow attack, sustained                  | quick attack, re-articulated every 4–8 steps     |
+| Timbre          | bus low-pass ≈ 800 Hz, pad attack 3.2 s | bus low-pass ≈ 4.2 kHz, pad attack 0.5 s         |
+| Space           | reverb send 0.75                        | reverb send 0.35                                 |
+
+- **Tempo:** the `Transport` is the data clock (one slice per eighth note),
+  so changing its BPM would change the scientific timing. "Tempo" here is
+  the density of events on that clock: chord rate, pulse, sixteenth notes.
+- **Register:** the scientific band (C4–C6, MIDI 60–84) stays free in both
+  profiles. Low voices end at B3; the energetic "high" notes are the
+  **glints**, a short triangle pluck (a timbre unlike the scientific piano,
+  bell and sine) at D6–A6, above the data.
+- **Within a profile, the music still evolves:** the five phases, the
+  intensity curve, the non-repeating progression, smooth voice leading and
+  textures entering and leaving all still apply. The unit tests check them in
+  both profiles.
+
+### Moving from one image to the next
+
+- **Key:** stays for the whole session (`identitySeed`).
+- **Energy glide:** a new image starts from the previous image's energy and
+  glides to its own over the first 25 % of the image (smoothstep). Similar
+  images therefore keep a steady profile, with no artificial change.
+- **Harmony continues:** the first chord moves on from the previous image's
+  last chord and voicing (`continuationOf`), rather than restarting on the
+  tonic.
+- **Timbre glides:** at each chord, the bus filter, the reverb send and the
+  strings filter ramp to the chord's values over the chord. The audio nodes
+  keep their state between images, so the change is gradual.
+- **Measured** in Chrome, dark → bright: the spectral centroid stays near the
+  dark value for the first seconds of the new image, then rises (≈ 100 Hz →
+  ≈ 230 Hz). There is no level spike at the change.
+
+### Procedural variation
+
+- **Seeded:** a seeded PRNG (mulberry32) makes every choice. Same seeds and
+  duration give the same plan.
+- **Session seed:** `identitySeed` is drawn when Play starts a sequence from
+  idle (`PlaybackController.newSession()`, called by `SequencePlayer.play`).
+  Stop then Play gives a new identity.
+- **Profile:** `energy` comes from the image, so the same image always gets
+  the same mood; seeds vary the material inside that mood.
+- **Per image:** `movement` counts the images composed in the session. Each
+  image of a sequence or loop gets a different progression, texture plan and
+  rhythm in the same key.
+- **Pause / resume:** the plan is computed once per image, before it plays, and
+  driven by the Transport step index. Pause and resume keep the plan and the
+  position. On resume, the sustained textures of the chord in progress are
+  re-voiced for its remaining steps.
+
+### Timing
+
+Everything is expressed in steps and played from the existing
+`Transport.scheduleRepeat` tick (`CinematicLayer.play`). There is no second
+clock and nothing is scheduled ahead, so speed changes, pause, stop, next and
+loop need no extra cleanup. Durations are converted with the tempo at the
+moment they are played.
 
 ### How the cinematic layer avoids masking the scientific layer
 
-- **Register:** all pad and string notes stay below C4, the lowest scientific
-  pitch. The cinematic piano stays in octaves 2–3.
-- **Level:** the cinematic bus runs 10 dB below the scientific bus.
+- **Register:** every cinematic note (pad, strings, drone, bass, figures) stays
+  at or below B3, under C4, the lowest scientific pitch. A unit test checks it.
+- **Level:** the cinematic bus runs 10 dB below the scientific bus, and the
+  dynamics stage adds up to 9 dB of reduction. Measured in Chrome: the
+  cinematic layer alone averages about 15 dB below the full mix.
 - **Filtering:** the cinematic bus is low-passed at 1.8 kHz. The scientific bus
   passes up to 5 kHz.
 - **Reverb:** the shared reverb (6 s) gets a 0.55 send from the cinematic bus
@@ -297,6 +386,63 @@ reordering on a translated page. File names are wrapped in
 - **Onboarding:** the Screen Reader First onboarding does not use this voice; it
   still relies only on the user's screen reader.
 
+## Shared engine: scores (image and region comparison)
+
+Since 15/11/2026 the engine plays a neutral **score**, so the image and the
+region comparison use the same PlaybackController, InstrumentManager,
+ScientificLayer and Transport. There is no second audio engine.
+
+```text
+ImageAnalysis ── imageToScore() ──────┐
+                                      ├─► SonificationScore ─► PlaybackController.playScore(score, fromIndex)
+ComparisonData ─ comparisonToScore() ─┘        └─ ScientificLayer: one note per voice per step
+                                                    └─ InstrumentManager: one channel (panner) per voice
+```
+
+- **Contract (`engine/score.ts`):** `stepCount`, `stepSeconds` (seconds per
+  step at 1×), `voices` (id, timbre, pan, one note or `null` per step) and
+  `cinematic` (`{ energy }` or `null`). A note has a continuous frequency, a
+  velocity and, optionally, its own pan and timbre. `null` is a silence.
+- **Image (`engine/imageScore.ts`):** one voice, `"main"`, whose pan and
+  timbre change per note, exactly as `mapAnalysis` produces them; 0.3 s per
+  step; cinematic energy from `cinematicProfile`. `play(analysis)` still
+  exists and delegates to `playScore`, so SequencePlayer is unchanged. A unit
+  test checks that the score equals `mapAnalysis` note for note.
+- **Comparison (`engine/comparisonScore.ts`):** two voices, `"a"` (soft sine,
+  `glass`, pan −0.7) and `"b"` (triangle, pan +0.7), one step per month,
+  0.5 s per step, no cinematic layer. Pitch uses the same
+  `normToFrequency` as the image (C4 → C6, linear in octaves, unquantised) on
+  a domain shared by both regions: the lowest value present in either region
+  is C4, the highest C6. Velocity is constant (0.7): loudness carries no data.
+  A missing month is `null` (silence). Modes "a" and "b" silence the other
+  voice and centre the one heard; the scale does not change with the mode.
+  If every value is (almost) equal, all notes play at the middle of the range.
+- **Tempo:** `bpm = 60 / (2 × stepSeconds) × speed`; the image keeps 100 BPM.
+- **Channels (`InstrumentManager.prepareChannel`):** each voice has its own
+  panner feeding the existing scientific filter, bus, reverb send, master and
+  limiter. Channel `"main"` is the original `sciPanner` with the original
+  instruments. Instruments are created before playback, never in the Transport
+  callback. A `triangle` timbre was added (−7 dB, it sounds louder than the
+  sine at the same level).
+- **Samples:** the comparison creates its controller with
+  `{ loadSamples: false }`; it only uses synthesised voices, so the 1.2 MB of
+  piano samples are not downloaded.
+- **Seek (`PlaybackController.seek`):** while playing or paused, releases the
+  voices, cancels pending Draw callbacks and sets `Transport.ticks` to the
+  step; the UI is told at once. From idle, `playScore(score, fromIndex)`
+  starts at a step.
+- **One owner of the Transport (`engine/transportOwner.ts`):** the image
+  sequence and the comparison player claim the Transport when they start;
+  claiming it stops the previous owner (the whole experience, narration
+  included), and each player announces why it stopped. `stop()` on an idle
+  controller no longer touches the Transport, so it cannot stop the other
+  experience.
+- **Comparison wiring (`hooks/useComparisonPlayback.ts`):** the comparison
+  store stays the source of commands (`lastAction`: play, pause, resume, stop),
+  the controller the source of time: `onStep` (via Tone.Draw) writes the
+  current month to the store, which moves the chart's reference line, the
+  table row, the readout and the slider. No React timer drives playback.
+
 ## Playback and synchronisation
 
 - **Start:** `Tone.start()` runs on the Play click. Instruments are built and
@@ -349,6 +495,21 @@ reordering on a translated page. File names are wrapped in
   about 1 % of the image along the reading axis are smoothed away.
 - **Synthesised strings:** there are no string samples. Only the
   piano uses recorded samples.
+- **Cinematic arc per image:** each image is one composition with its own arc
+  (≈29 s at 1×). Across a sequence the key stays and the material changes, but
+  every image starts again from a quiet introduction.
+- **Profile measured, not yet heard:** the two profiles were compared on the
+  Chrome audio output (attacks per second, spectral centroid, low-frequency
+  share; see Tests) and recorded, but the comparison by ear is pending.
+- **Energetic is quieter:** the energetic profile averages about 5 dB below
+  the contemplative one (lighter pad, little bass); the arpeggio and glints
+  carry it. Worth checking by ear.
+- **Brightness is not meaning:** the mood follows overall brightness, so two
+  very different scenes with similar brightness get similar moods. That is
+  acceptable for an artistic choice; it must never be read as information.
+- **Musical quality is measured, not yet heard:** the structure is unit-tested
+  and the dynamics were measured (RMS per phase), but nobody has listened to it
+  yet.
 - **Voices depend on the browser and system:** quality, language coverage and
   timing vary. Some engines report no voices at all; narration is then skipped
   with a warning.
@@ -384,8 +545,31 @@ reordering on a translated page. File names are wrapped in
   cancel, speech errors, missing speech synthesis.
 - `describeImage.test.ts`: the measured summary, the source order of the
   description, and the absence of semantic claims.
+- `engine/cinematicProfile.test.ts`: dark → contemplative, bright →
+  energetic, blend for mid images, monotonic and continuous (no jump), uses
+  the distribution and not only the mean, configurable thresholds.
+- `engine/cinematicComposer.test.ts`: contrast between the profiles (chord
+  length, event density, sixteenths, register, drone and glints, major/minor
+  share, filter, attack, reverb), mid image between the two, parameters
+  continuous in energy, energy glide and harmonic continuation between
+  images, and the earlier properties in both profiles: determinism, variation between sessions
+  and images, one key per session, register below C4, tonic start and end,
+  smooth voice leading, no looping 4-chord pattern, phases proportional to the
+  duration, gradual intensity, density, string entries and exits, varied piano
+  rhythm, and that the plan has no image input.
 - `collection/imageCollection.test.ts`: move, remove (the demo is protected),
   file filtering.
+- `engine/score.test.ts`: `normToFrequency` (C4–C6, equal ratios for equal
+  steps, clamping, same function as the image), tempo, step clamping, and
+  `imageToScore` equal to `mapAnalysis` note for note (frequency, velocity,
+  pan, timbre).
+- `engine/comparisonScore.test.ts`: shared domain, C4/C6 bounds, equal
+  intervals, flat comparisons, voices and their identities, silence for
+  missing months, constant velocity, modes A, B and both.
+- `engine/transportOwner.test.ts`: the comparison stops the image and the
+  other way round, re-claiming does not stop oneself, release rules.
+- `describeSonification.test.ts`: the description quotes the hertz and values
+  the score plays, explains silences, names the real source.
 
 `scripts/test-hooks.mjs` resolves extensionless imports and the `@/` alias, so
 no test dependency is needed. `pnpm typecheck` runs TypeScript.

@@ -497,6 +497,52 @@ Estas pendências complementam as de `docs/accessibility-audit.md` e `docs/relat
 9. **Trabalho anterior com o EIC:** descartar, usar como mock ou retomar via API do SVS? (P-12)
 10. **Textos institucionais:** manter "NASA OPEN DATA" e "through NASA data" enquanto os dados forem sintéticos? (P-13)
 
+## 11. Pendências de acessibilidade comprovadas na auditoria técnica (15/11/2026)
+
+Acrescentadas a partir de [`docs/AUDITORIA_TECNICA_ACESSIBILIDADE.md`](AUDITORIA_TECNICA_ACESSIBILIDADE.md), que cruza o relatório automatizado `eval.csv` com o código. Só entram aqui problemas comprovados no código ou no navegador. Achados prováveis, falsos positivos e itens não localizados ficam no relatório. Nenhuma pendência anterior foi marcada como resolvida.
+
+| ID | Pendência | Evidência | Ref. no relatório | Prioridade | Status |
+| --- | --- | --- | --- | --- | --- |
+| A-07 | Sem WebGL2, a página `/explore` inteira falha ("Unexpected Application Error!"): tabela, resumo e players somem junto com o mapa | `EarthMap.tsx:29` sem tratamento de erro; `routes.tsx` sem `errorElement`; reproduzido em Chrome headless | NA-01, TA-01 | Alta | Não iniciada |
+| A-08 | O foco vai para `<body>` ao acionar Stop da sonificação de imagem; Anterior, Próximo e Play usam o mesmo padrão (`disabled` no botão focado) | `ImageAnalyzer.tsx:427, 435, 445-449, 469` (commit `343e4d5`); reproduzido com teclado simulado | NA-02, TA-02 | Alta | Não iniciada |
+| A-09 | Narração própria (`speechSynthesis`) ligada por padrão e detecção de idioma, em conflito com a regra Screen Reader First de `src/features/guided-experience/README.md:12, 138` e com `docs/accessibility-audit.md:221, 287` | `ImageAnalyzer.tsx:87-91, 547-576`; `engine/narrationLayer.ts`; `engine/narrationLanguage.ts` | NA-03, TA-03; mesma decisão de AC-14/D-13 em `AUDITORIA_COMPARACAO.md` | Alta | Aguardando decisão |
+| A-10 | Play da sonificação de imagem `disabled` (fora da ordem de Tab) sem motivo associado | `ImageAnalyzer.tsx:445-449, 585-587` | NA-04, TA-04; mesmo princípio de A-02 | Média | Não iniciada |
+| A-11 | Slider "Playback position" visível sem rótulo visível | `SonificationPlayer.tsx:196-208` (`label_02` do CSV) | TA-05 | Média | Não iniciada |
+
+## 12. Situação após a implementação da comparação com dados reais (15/11/2026)
+
+A Feature de Comparação foi implementada conforme [`FEATURE_COMPARISON_IMPLEMENTATION_REPORT.md`](FEATURE_COMPARISON_IMPLEMENTATION_REPORT.md). As seções 1 a 11 ficam como registro do levantamento original. Esta tabela diz o que mudou, **só com evidência**:
+
+- **Teste:** teste automatizado em `npm test` (170 testes, todos passando).
+- **E2E:** verificação no Chrome real (headless, via DevTools Protocol) contra o build de produção e o servidor de desenvolvimento, com chamadas reais à NASA: 33 de 33 verificações passaram em cada um. O script ficou fora do repositório.
+- **Manual pendente:** nenhuma pendência foi marcada como resolvida com base em validação com leitor de tela, porque ela não foi feita.
+
+| ID | Situação | Evidência |
+| --- | --- | --- |
+| P-01 | **Resolvido para `T2M`.** As séries vêm do NASA POWER mensal por ponto; `createDemoSeries` e `demoData.ts` foram removidos (sem fallback sintético) | Teste: `powerParse.test.ts` com respostas reais gravadas; E2E: 2 requisições reais, 240 linhas na tabela |
+| P-02 | **Resolvido.** `features/data/power/powerClient.ts` (cache por região com promessa compartilhada, timeout de 20 s, erros tipados), `useComparisonData.ts` (descarta resposta obsoleta), proveniência nos tipos | Teste: `powerClient.test.ts`; E2E: região já carregada não gera requisição; erro e "Try again" |
+| P-03 | **Aberto (fora do MVP).** Precipitação saiu do catálogo até a decisão. Achado novo: `PRECTOTCORR_SUM` é total mensal, mas a API declara `mm/day` (FC-06 do relatório) | — |
+| P-04 | **Resolvido.** `-999` → `null`, chave `AAAA13` descartada, meses não publicados → `null`, alinhamento por data | Teste: `powerParse.test.ts`, `comparison.test.ts` (24 × 20 meses → 24 linhas) |
+| P-05 | **Parcial.** Continua o catálogo de 5 pontos, agora com fonte da coordenada; a interface informa o tamanho da célula e bloqueia dois pontos na mesma célula | Teste: São Paulo × ponto vizinho detectado; São Paulo × Sorocaba aceito (células vizinhas) |
+| P-06 | **Resolvido.** Período derivado dos anos completos das duas regiões; padrão: últimos 20 anos completos | Teste: `completeYearRange`, `defaultPeriod`; E2E: "January 2006 to December 2025" |
+| P-07 | **Parcial.** Unidade de exibição no catálogo (`indicators.ts`), unidade da API verificada a cada série (`unit_mismatch`) | Teste: `checkCompatibility` |
+| P-08, P-09, P-10, P-12 | **Abertos.** Fora do escopo da comparação | — |
+| P-11 | **Resolvido.** Camada `MERRA2_2m_Air_Temperature_Monthly` do GIBS no mapa, com legenda em °C, atribuição, mês exibido e aviso de meses sem imagem | E2E: tiles 200 para jan/2006; dez/2023 (404) explicado na página |
+| P-13 | **Parcial.** Selo, textos da Explore, Home, About e descrições usam a fonte real. "NASA OPEN DATA" no cabeçalho passou a ser verdadeiro | E2E: nenhum texto "synthetic"; selo "NASA POWER · MERRA2" |
+| P-14 | **Resolvido.** Sem divisor mínimo fixo; comparação "plana" toca no meio da escala e o texto diz isso | Teste: `comparisonScore.test.ts` |
+| P-15 | **Resolvido.** Página e guia usam `useComparisonData` e a mesma requisição | E2E: guia com os mesmos números da página e nenhuma requisição a mais |
+| A-01 | **Aberto.** Imagens de API não entraram na comparação; a camada GIBS tem descrição textual composta dos metadados | — |
+| A-02 | **Resolvido (automatizado).** Carregamento e conclusão em `role="status"` (uma mensagem cada), erro em `role="alert"`, Play com `aria-disabled` e motivo | Teste: `dataStatus.test.ts`; E2E: alerta, Play focável e motivo, foco preservado após "Try again" |
+| A-03 | **Resolvido (convenção escolhida: silêncio).** Silêncio no som, "No data" na tabela, lacuna no gráfico (`connectNulls={false}`), contagem no resumo e na descrição | Teste: `comparisonScore.test.ts`, `describeSonification.test.ts` |
+| A-04 | **Resolvido.** Proveniência real (fonte, MERRA-2, versão da API, data da consulta) no resumo do gráfico e na descrição antes do áudio | Teste e E2E |
+| A-05 | **Parcial.** Unidade por extenso ("degrees Celsius") nos textos lidos; pronúncia real não verificada | — |
+| A-06 | **Aberto.** Validação com VoiceOver e NVDA não executada | — |
+| A-07 | **Resolvido para o mapa.** Sem WebGL2, o mapa vira texto e a página continua funcionando. Não foi adicionado `errorElement` às rotas | E2E: Chrome com WebGL desligado |
+| A-08, A-09, A-10 | **Abertos.** São da sonificação de imagem | — |
+| A-11 | **Resolvido.** Rótulo visível "Playback position" no slider da comparação | Código: `SonificationPlayer.tsx` |
+
+**Novo, observado durante a validação (não resolvido):** o worker do MapLibre falha ao carregar ("Worker failed to load") no build e no servidor de desenvolvimento. Tiles raster (OpenStreetMap e GIBS) funcionam; o problema existe independentemente da comparação e não foi investigado.
+
 ## Fontes consultadas
 
 - NASA POWER — Monthly API: <https://power.larc.nasa.gov/docs/services/api/temporal/monthly/>
