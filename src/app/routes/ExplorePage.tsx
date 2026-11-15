@@ -1,4 +1,4 @@
-import { useEffect, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { DataSourceBadge } from "../../components/DataSourceBadge";
 import { StableText } from "../../components/StableText";
 import { ComparisonControls } from "../../features/comparison/components/ComparisonControls";
