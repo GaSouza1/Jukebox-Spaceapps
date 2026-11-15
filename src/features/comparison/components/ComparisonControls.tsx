@@ -1,15 +1,36 @@
+import { useState } from "react";
 import { indicators, type IndicatorId } from "../../data/demoData";
 import { useComparisonStore } from "../../../stores/comparisonStore";
+import type { Region } from "../../../types/data";
+import { REGION_SOUND } from "../../sonification/describeSonification";
+import { guidedText } from "../../guided-experience/i18n/en";
+import { StableText } from "../../../components/StableText";
 import { RegionSelector } from "./RegionSelector";
 
 export function ComparisonControls() {
   const store = useComparisonStore();
+  const [announcement, setAnnouncement] = useState("");
   if (!store.regionA || !store.regionB) return null;
 
-  const updateStart = (startYear: number) =>
-    store.setPeriod(Math.min(startYear, store.endYear), store.endYear);
-  const updateEnd = (endYear: number) =>
-    store.setPeriod(store.startYear, Math.max(endYear, store.startYear));
+  // One short confirmation per user change (the chart summary below has the details).
+  const announce = (a: Region, b: Region, indicator: IndicatorId, start: number, end: number) =>
+    setAnnouncement(
+      `Now comparing ${a.name} and ${b.name}, ${indicators[indicator].shortLabel.toLowerCase()}, ${start} to ${end}.`,
+    );
+  const indicator = store.indicator as IndicatorId;
+
+  // Picking a start after the end (or vice versa) moves the other bound instead of
+  // silently ignoring the choice.
+  const updateStart = (startYear: number) => {
+    const endYear = Math.max(store.endYear, startYear);
+    store.setPeriod(startYear, endYear);
+    announce(store.regionA!, store.regionB!, indicator, startYear, endYear);
+  };
+  const updateEnd = (endYear: number) => {
+    const startYear = Math.min(store.startYear, endYear);
+    store.setPeriod(startYear, endYear);
+    announce(store.regionA!, store.regionB!, indicator, startYear, endYear);
+  };
 
   return (
     <section className="control-panel" aria-labelledby="comparison-setup">
@@ -20,21 +41,41 @@ export function ComparisonControls() {
         </div>
         <p>Monthly aggregates · 2005–2024</p>
       </div>
-      <div className="region-grid">
+      <span id="regions-group-label" className="sr-only">
+        Regions to compare
+      </span>
+      <p id="regions-hint" className="sr-only">
+        {guidedText.hints.regions}
+      </p>
+      {/* The group's description is read once when entering the Region A/B menus. */}
+      <div
+        className="region-grid"
+        role="group"
+        aria-labelledby="regions-group-label"
+        aria-describedby="regions-hint"
+      >
         <RegionSelector
-          label="REGION A"
+          label="Region A"
           tone="blue"
           value={store.regionA}
-          onChange={(r) => store.setRegion("regionA", r)}
+          identity={`${REGION_SOUND.a.line} · ${REGION_SOUND.a.timbre}, ${REGION_SOUND.a.channel}`}
+          onChange={(r) => {
+            store.setRegion("regionA", r);
+            announce(r, store.regionB!, indicator, store.startYear, store.endYear);
+          }}
         />
         <div className="versus" aria-hidden="true">
           <span>VS</span>
         </div>
         <RegionSelector
-          label="REGION B"
+          label="Region B"
           tone="orange"
           value={store.regionB}
-          onChange={(r) => store.setRegion("regionB", r)}
+          identity={`${REGION_SOUND.b.line} · ${REGION_SOUND.b.timbre}, ${REGION_SOUND.b.channel}`}
+          onChange={(r) => {
+            store.setRegion("regionB", r);
+            announce(store.regionA!, r, indicator, store.startYear, store.endYear);
+          }}
         />
       </div>
       <div className="filter-row">
@@ -44,12 +85,21 @@ export function ComparisonControls() {
             {Object.values(indicators).map((item) => (
               <button
                 key={item.id}
+                type="button"
                 className={store.indicator === item.id ? "active" : ""}
-                onClick={() => store.setIndicator(item.id as IndicatorId)}
+                onClick={() => {
+                  store.setIndicator(item.id as IndicatorId);
+                  announce(
+                    store.regionA!,
+                    store.regionB!,
+                    item.id as IndicatorId,
+                    store.startYear,
+                    store.endYear,
+                  );
+                }}
                 aria-pressed={store.indicator === item.id}
               >
-                {item.shortLabel}
-                <small>{item.unit}</small>
+                {item.shortLabel} <small>{item.unit}</small>
               </button>
             ))}
           </div>
@@ -77,6 +127,9 @@ export function ComparisonControls() {
           </div>
         </fieldset>
       </div>
+      <p className="sr-only" role="status">
+        {announcement && <StableText>{announcement}</StableText>}
+      </p>
     </section>
   );
 }

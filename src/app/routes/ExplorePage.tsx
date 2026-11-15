@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { DataSourceBadge } from "../../components/DataSourceBadge";
+import { StableText } from "../../components/StableText";
 import { ComparisonControls } from "../../features/comparison/components/ComparisonControls";
 import { ScientificExplanation } from "../../features/comparison/components/ScientificExplanation";
 import { createDemoSeries, indicators, type IndicatorId } from "../../features/data/demoData";
@@ -8,6 +9,7 @@ import { ComparisonChart } from "../../features/visualization/charts/ComparisonC
 import { EarthMap } from "../../features/visualization/map/EarthMap";
 import { useComparisonStore } from "../../stores/comparisonStore";
 import { ImageSonification } from "@/features/sonification/components/ImageAnalyzer";
+import { guidedText } from "@/features/guided-experience/i18n/en";
 
 export function ExplorePage() {
   const { regionA, regionB, indicator, startYear, endYear, currentIndex } = useComparisonStore();
@@ -48,6 +50,9 @@ export function ExplorePage() {
         </div>
       </header>
 
+      {/* Read in order during normal navigation; no visual change. */}
+      <p className="sr-only">{guidedText.hints.explorePage}</p>
+
       <ImageSonification />
       <ComparisonControls />
 
@@ -66,13 +71,11 @@ export function ExplorePage() {
       <SonificationPlayer seriesA={seriesA} seriesB={seriesB} />
       <ScientificExplanation indicator={indicator as IndicatorId} />
 
-      <section className="data-summary" aria-label="Current comparison text summary">
-        <strong>Current comparison</strong>
-        <p>
-          {regionA.name} and {regionB.name},{" "}
-          {indicators[indicator as IndicatorId].label.toLowerCase()} from {startYear} through{" "}
-          {endYear}.
-        </p>
+      <section className="data-summary" aria-labelledby="data-summary-title">
+        <strong id="data-summary-title">Current comparison</strong>
+        <StableText as="p">
+          {`${regionA.name} and ${regionB.name}, ${indicators[indicator as IndicatorId].label.toLowerCase()} from ${startYear} through ${endYear}.`}
+        </StableText>
       </section>
     </div>
   );

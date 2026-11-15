@@ -15,6 +15,8 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    /* Keeps focused elements and anchor targets clear of the sticky header (WCAG 2.4.11). */
+    scroll-padding-top: 6rem;
   }
 
   body {
@@ -339,7 +341,7 @@
   border-top: 1px solid #263447;
   display: flex;
   gap: 3rem;
-  color: #6f7d90;
+  color: #8492a6;
 }
 .hero-trust div {
   display: flex;
@@ -468,7 +470,7 @@
   bottom: 4%;
   text-align: right;
   font: 0.6rem "DM Mono";
-  color: #68778b;
+  color: #8492a6;
 }
 .planet-caption span,
 .planet-caption strong {
@@ -573,7 +575,7 @@
   letter-spacing: -0.035em;
 }
 .section-label-row p {
-  color: #6f7d90;
+  color: #8492a6;
   font: 0.62rem "DM Mono";
 }
 .region-grid {
@@ -618,7 +620,7 @@
   font-size: 0.92rem;
 }
 .region-selector p {
-  color: #6f7d91;
+  color: #8492a6;
   font-size: 0.68rem;
   margin-top: 0.75rem;
 }
@@ -634,7 +636,7 @@
 .versus {
   display: grid;
   place-items: center;
-  color: #607086;
+  color: #8492a6;
   font: 0.65rem "DM Mono";
 }
 .versus span {
@@ -676,7 +678,7 @@ fieldset legend,
 }
 .segmented button small {
   display: block;
-  color: #667487;
+  color: #8492a6;
   font: 0.58rem "DM Mono";
   margin-top: 0.2rem;
 }
@@ -694,7 +696,7 @@ fieldset legend,
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  color: #6f7d90;
+  color: #8492a6;
   font-size: 0.65rem;
 }
 .period-control select,
@@ -845,7 +847,7 @@ fieldset legend,
 }
 .player-controls {
   display: grid;
-  grid-template-columns: auto 120px 1fr;
+  grid-template-columns: auto minmax(0, 210px) 110px 1fr;
   gap: 2rem;
   align-items: center;
   margin-top: 1.5rem;
@@ -908,7 +910,7 @@ fieldset legend,
   padding-top: 3rem;
 }
 .science-title p {
-  color: #708095;
+  color: #8492a6;
   font-size: 0.74rem;
   margin-top: 1rem;
 }
@@ -936,8 +938,8 @@ fieldset legend,
   gap: 1rem;
   font-size: 0.68rem;
 }
-.source-note span {
-  color: #708095;
+.source-note span:not(.demo-badge, .demo-badge *) {
+  color: #8492a6;
 }
 .source-note .demo-badge {
   margin-left: auto;
@@ -975,7 +977,7 @@ fieldset legend,
   gap: 7vw;
   padding-top: 4rem;
 }
-.about-layout aside {
+.about-layout > nav {
   position: sticky;
   top: 110px;
   align-self: start;
@@ -983,18 +985,18 @@ fieldset legend,
   flex-direction: column;
   gap: 0.8rem;
 }
-.about-layout aside p {
-  color: #59697d;
+.about-layout > nav p {
+  color: #8492a6;
   font: 0.6rem "DM Mono";
   letter-spacing: 0.12em;
   margin-bottom: 0.5rem;
 }
-.about-layout aside a {
+.about-layout > nav a {
   color: #7f8da0;
   text-decoration: none;
   font-size: 0.68rem;
 }
-.about-layout aside a:hover {
+.about-layout > nav a:hover {
   color: white;
 }
 .about-sections > section {
@@ -1037,7 +1039,7 @@ fieldset legend,
   color: #c8d4e1;
 }
 .source-list span {
-  color: #6e7d91;
+  color: #8492a6;
 }
 .source-list i {
   color: #61b5fb;
@@ -1165,7 +1167,7 @@ fieldset legend,
   .source-note .demo-badge {
     margin-left: 0;
   }
-  .about-layout aside {
+  .about-layout > nav {
     display: none;
   }
   .about-hero {
@@ -1255,4 +1257,388 @@ fieldset legend,
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* Image sonification */
+.image-sonification {
+  margin: 2rem 0 3rem;
+}
+.exploratory-note {
+  margin-bottom: 1.25rem;
+  padding: 0.75rem 1rem;
+  border-left: 2px solid #ff9b55;
+  background: #0d1a28;
+  color: #9fadbf;
+  font-size: 0.75rem;
+  text-wrap: pretty;
+}
+.exploratory-note strong {
+  color: #ffd2b0;
+}
+.image-stage {
+  position: relative;
+  border: 1px solid #2d3d50;
+  line-height: 0;
+}
+.image-stage img {
+  width: 100%;
+  height: auto;
+}
+.scan-cursor {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.22);
+  outline: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
+  pointer-events: none;
+}
+.data-strip {
+  gap: 2px;
+  align-items: flex-end;
+  margin-top: 1rem;
+  height: 80px;
+}
+.data-strip i {
+  max-width: none;
+  border-radius: 1px;
+}
+.image-progress {
+  width: 100%;
+  height: 4px;
+  margin-top: 0.6rem;
+  appearance: none;
+  border: none;
+  background: #243448;
+}
+.image-progress::-webkit-progress-bar {
+  background: #243448;
+}
+.image-progress::-webkit-progress-value {
+  background: #47a9ff;
+}
+.image-progress::-moz-progress-bar {
+  background: #47a9ff;
+}
+.image-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem 2rem;
+  align-items: flex-end;
+  margin-top: 1.25rem;
+}
+.image-options label,
+.image-options legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: #8f9db0;
+  font: 0.64rem "DM Mono";
+  letter-spacing: 0.08em;
+}
+.image-options select {
+  background: #101d2c;
+  border: 1px solid #33445a;
+  padding: 0.6rem 0.8rem;
+  color: #e3ebf4;
+}
+.image-options > label {
+  max-width: 100%;
+  min-width: 0;
+}
+.image-options input[type="file"] {
+  width: 100%;
+  max-width: 100%;
+  color: #b6c1cf;
+}
+.image-options fieldset {
+  display: flex;
+  gap: 1rem;
+}
+.image-options .layer-toggle {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+}
+.sonification-alert {
+  margin-top: 1rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid #7a4a2a;
+  background: #1f150e;
+  color: #ffc49a;
+  font-size: 0.72rem;
+}
+.step-readout {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem 1.5rem;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #243448;
+}
+.step-readout dt {
+  color: #728195;
+  font: 0.58rem "DM Mono";
+  letter-spacing: 0.08em;
+}
+.step-readout dd {
+  color: #e3ebf4;
+  font: 0.8rem "DM Mono";
+  font-variant-numeric: tabular-nums;
+}
+.mapping-doc {
+  margin-top: 1.5rem;
+  color: #9fadbf;
+  font-size: 0.72rem;
+}
+.mapping-doc summary {
+  cursor: pointer;
+  color: #c9d3de;
+  font: 0.64rem "DM Mono";
+  letter-spacing: 0.08em;
+}
+.mapping-doc table {
+  width: 100%;
+  margin-top: 0.75rem;
+  border-collapse: collapse;
+}
+.mapping-doc th,
+.mapping-doc td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid #243448;
+  text-align: left;
+  vertical-align: top;
+}
+.mapping-doc th {
+  color: #728195;
+  font: 0.58rem "DM Mono";
+  letter-spacing: 0.08em;
+}
+@media (max-width: 800px) {
+  .step-readout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .mapping-doc {
+    overflow-x: auto;
+  }
+}
+
+/* Accessibility additions */
+main:focus,
+#main-content h1:focus {
+  outline: none;
+}
+.region-key {
+  text-transform: uppercase;
+}
+.legend li,
+.sound-key li {
+  list-style: none;
+}
+.legend i.dashed,
+.sound-key i.dashed {
+  background: repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 9px);
+}
+.chart-summary {
+  margin-top: 1rem;
+  color: #a9b6c6;
+  font-size: 0.78rem;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+.chart-summary strong {
+  color: #e3ebf4;
+}
+.data-table {
+  margin-top: 1.25rem;
+  font-size: 0.75rem;
+}
+.data-table summary {
+  cursor: pointer;
+  color: #c9d3de;
+  font: 0.68rem "DM Mono";
+  letter-spacing: 0.06em;
+}
+.table-scroll {
+  max-height: 360px;
+  overflow: auto;
+  margin-top: 0.75rem;
+  border: 1px solid #243448;
+}
+.data-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.data-table caption {
+  padding: 0.6rem;
+  text-align: left;
+  color: #a9b6c6;
+}
+.data-table th,
+.data-table td {
+  padding: 0.35rem 0.7rem;
+  border-bottom: 1px solid #1d2b3c;
+  text-align: right;
+}
+.data-table th[scope="row"],
+.data-table thead th:first-child {
+  text-align: left;
+}
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  background: #0c1724;
+  color: #a9b6c6;
+  font-weight: 500;
+}
+.data-table tr[aria-current="true"] {
+  background: #17304a;
+  color: #fff;
+}
+.map-regions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.5rem;
+  padding: 0.7rem 0.4rem 0.2rem;
+  font: 0.68rem "DM Mono";
+}
+.map-regions b,
+.map-marker {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #07101b;
+  font-weight: 700;
+}
+.map-regions b {
+  width: 1.4em;
+  height: 1.4em;
+}
+.map-regions .blue b,
+.map-marker-a {
+  background: #47a9ff;
+}
+.map-regions .orange b,
+.map-marker-b {
+  background: #ff9b55;
+}
+.map-marker {
+  width: 26px;
+  height: 26px;
+  border: 2px solid #07101b;
+  font: 700 0.8rem "Manrope", sans-serif;
+  cursor: pointer;
+}
+.image-profile {
+  margin-top: 0.5rem;
+  padding-left: 1rem;
+  list-style: disc;
+  line-height: 1.6;
+}
+
+/* High contrast: lift muted text to near-white for low-vision users */
+.high-contrast
+  :is(p, small, label, legend, dt, dd, td, th, caption, figcaption, summary, .eyebrow, .coordinate, .timeline-readout, .heading-note, .section-label-row p) {
+  color: #f4f8fc;
+}
+.high-contrast :is(select, input, .segmented, .region-selector, .player-card) {
+  border-color: #9fb3c8;
+}
+
+/* Image figure with a human-written / missing description caption */
+.image-caption {
+  margin-top: 0.6rem;
+  color: #a9b6c6;
+  font-size: 0.72rem;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+.image-caption strong {
+  color: #e3ebf4;
+}
+
+@media (max-width: 800px) {
+  .player-controls {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+}
+.high-contrast .image-caption {
+  color: #f4f8fc;
+}
+
+/*
+ * Screen-reader guide: visually hidden (clip pattern, still in the
+ * accessibility tree; never display:none/visibility:hidden). It becomes
+ * visible only while something inside it has focus, like the skip link,
+ * so sighted keyboard users can see where focus is (WCAG 2.4.7).
+ */
+.sr-guide:not(:focus-within) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.sr-guide:focus-within {
+  position: fixed;
+  z-index: 90;
+  top: 5rem;
+  left: 1rem;
+  width: min(34rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 6rem);
+  overflow-y: auto;
+  padding: 1rem 1.2rem;
+  border: 2px solid #8ac8ff;
+  border-radius: 4px;
+  background: #07101b;
+  color: #e9f0f8;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.sr-guide h2 {
+  margin: 0.75rem 0 0.4rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.sr-guide :is(p, ul, ol, dl, nav) + :is(p, ul, ol, dl, nav) {
+  margin-top: 0.5rem;
+}
+.sr-guide :is(ul, ol) {
+  padding-left: 1.2rem;
+  list-style: disc;
+}
+.sr-guide ol {
+  list-style: decimal;
+}
+.sr-guide dt {
+  color: #8ac8ff;
+  font-weight: 600;
+}
+.sr-guide a {
+  color: #8ac8ff;
+  text-decoration: underline;
+}
+.sr-guide button {
+  min-height: 2rem;
+  margin: 0.2rem 0.4rem 0.2rem 0;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid #8ac8ff;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+/* Long option labels (e.g. "Region A only · Manaus") must not widen the grid. */
+.player-controls label {
+  min-width: 0;
+}
+.player-controls select {
+  width: 100%;
+  min-width: 0;
+}
+.sr-guide-label {
+  color: #8ac8ff;
+  font-weight: 600;
 }

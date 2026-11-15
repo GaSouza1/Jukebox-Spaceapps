@@ -21,16 +21,16 @@ export function ScientificExplanation({ indicator }: { indicator: IndicatorId })
           <span>02</span>
           <h3>Mapping values</h3>
           <p>
-            Each monthly value is normalized within the displayed range. Higher values produce
-            higher pitches.
+            Each monthly value is normalized within the displayed range of both regions together.
+            Higher values produce higher pitches, and equal values sound at equal pitch.
           </p>
         </article>
         <article>
           <span>03</span>
           <h3>Two sound identities</h3>
           <p>
-            Region A uses a sine timbre; Region B uses a triangle timbre. Pitch conveys value, not
-            color.
+            Region A is a soft sine tone in the left channel; Region B is a brighter triangle tone
+            in the right channel. Pitch conveys value, not color.
           </p>
         </article>
         <article>
@@ -46,7 +46,7 @@ export function ScientificExplanation({ indicator }: { indicator: IndicatorId })
         <strong>Intended source</strong>
         <span>NASA POWER · Monthly aggregates</span>
         <span className="demo-badge">
-          <span /> NOT YET CONNECTED
+          <span aria-hidden="true" /> NOT YET CONNECTED
         </span>
       </div>
     </section>

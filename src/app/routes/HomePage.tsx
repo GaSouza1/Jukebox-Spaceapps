@@ -7,7 +7,7 @@ export function HomePage() {
       <section className="hero">
         <div className="hero-copy">
           <div className="challenge-tag">
-            <span /> NASA SPACE APPS CHALLENGE · 2026
+            <span aria-hidden="true" /> NASA SPACE APPS CHALLENGE · 2026
           </div>
           <h1>
             Two regions.
@@ -39,10 +39,10 @@ export function HomePage() {
             </div>
           </div>
         </div>
-        <div
-          className="planet-stage"
-          aria-label="Abstract visualization of Earth with two compared locations"
-        >
+        <div className="planet-stage" role="img" aria-labelledby="planet-stage-label">
+          <span id="planet-stage-label" className="sr-only">
+            Decorative illustration: an abstract Earth with two compared locations, A and B
+          </span>
           <div className="orbit orbit-one" />
           <div className="orbit orbit-two" />
           <div className="planet">

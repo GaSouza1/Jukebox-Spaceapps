@@ -14,12 +14,12 @@ const sections = [
   {
     number: "03",
     title: "Sonification methodology",
-    body: "Monthly values are normalized against the minimum and maximum in the active comparison. The result maps to pitch within a bounded, audible range. Region A uses a sine wave and Region B a triangle wave, while time moves chronologically at the selected speed.",
+    body: "Monthly values are normalized against the minimum and maximum in the active comparison, and both regions share that one pitch scale, so equal values sound at equal pitch. Region A uses a soft sine tone in the left channel and Region B a brighter triangle tone in the right channel, while time moves chronologically at the selected speed. Before playing, screen readers receive a description of what the sound represents.",
   },
   {
     number: "04",
     title: "Accessibility",
-    body: "Semantic landmarks, keyboard-operable controls, visible focus, text summaries, high contrast, chart descriptions and separate stop and volume controls support different access needs. Sound and color reinforce information but never carry it alone.",
+    body: "Semantic landmarks, keyboard-operable controls, visible focus, text summaries and data tables, high contrast, chart descriptions, spoken descriptions before each sonification and separate stop and volume controls support different access needs. Sound and color reinforce information but never carry it alone.",
   },
 ];
 
@@ -39,15 +39,15 @@ export function AboutPage() {
         </p>
       </header>
       <div className="about-layout">
-        <aside>
-          <p>ON THIS PAGE</p>
+        <nav aria-labelledby="on-this-page">
+          <p id="on-this-page">ON THIS PAGE</p>
           {sections.map((section) => (
             <a key={section.number} href={`#section-${section.number}`}>
               {section.number} {section.title}
             </a>
           ))}
           <a href="#disclaimer">05 Scientific disclaimer</a>
-        </aside>
+        </nav>
         <div className="about-sections">
           {sections.map((section) => (
             <section id={`section-${section.number}`} key={section.number}>
@@ -60,7 +60,8 @@ export function AboutPage() {
                     <a href="https://power.larc.nasa.gov/" target="_blank" rel="noreferrer">
                       <strong>NASA POWER</strong>
                       <span>Climate data for energy and agriculture</span>
-                      <i>↗</i>
+                      <i aria-hidden="true">↗</i>
+                      <span className="sr-only">(opens in a new tab)</span>
                     </a>
                     <a
                       href="https://www.earthdata.nasa.gov/eosdis/science-system-description/eosdis-components/gibs"
@@ -69,12 +70,14 @@ export function AboutPage() {
                     >
                       <strong>NASA GIBS</strong>
                       <span>Global imagery browsing services</span>
-                      <i>↗</i>
+                      <i aria-hidden="true">↗</i>
+                      <span className="sr-only">(opens in a new tab)</span>
                     </a>
                     <a href="https://earth.gov/" target="_blank" rel="noreferrer">
                       <strong>Earth Information Center</strong>
                       <span>Trusted Earth science information</span>
-                      <i>↗</i>
+                      <i aria-hidden="true">↗</i>
+                      <span className="sr-only">(opens in a new tab)</span>
                     </a>
                   </div>
                 )}
@@ -101,7 +104,7 @@ export function AboutPage() {
           <h2>Compare two places on one planet.</h2>
         </div>
         <Link className="primary-button" to="/explore">
-          Open the experience <span>→</span>
+          Open the experience <span aria-hidden="true">→</span>
         </Link>
       </div>
     </div>

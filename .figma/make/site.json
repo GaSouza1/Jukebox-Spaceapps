@@ -1,4 +1,6 @@
 {
+  "title": "Earth Information Jukebox",
+  "language": "en",
   "description": "Compare environmental data from two regions through interactive maps, charts, and synchronized sonification, making NASA indicators more accessible and engaging.",
   "robots": {
     "index": false
