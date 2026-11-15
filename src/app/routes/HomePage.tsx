@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { DataSourceBadge } from "../../components/DataSourceBadge";
+import earthLogo from "@/assets/earth-illustration.jpg";
 
 export function HomePage() {
   return (
@@ -39,31 +40,8 @@ export function HomePage() {
             </div>
           </div>
         </div>
-        <div className="planet-stage" role="img" aria-labelledby="planet-stage-label">
-          <span id="planet-stage-label" className="sr-only">
-            Decorative illustration: an abstract Earth with two compared locations, A and B
-          </span>
-          <div className="orbit orbit-one" />
-          <div className="orbit orbit-two" />
-          <div className="planet">
-            <div className="land land-one" />
-            <div className="land land-two" />
-            <span className="point point-a">
-              <i /> A
-            </span>
-            <span className="point point-b">
-              <i /> B
-            </span>
-          </div>
-          <div className="frequency-lines" aria-hidden="true">
-            {Array.from({ length: 34 }, (_, i) => (
-              <i key={i} style={{ height: `${4 + ((i * 13) % 34)}px` }} />
-            ))}
-          </div>
-          <div className="planet-caption">
-            <span>COMPARISON MODE</span>
-            <strong>EARTH · MONTHLY SIGNAL</strong>
-          </div>
+        <div className="planet-stage">
+          <img src={earthLogo} alt="Abstract Earth with two compared locations, A and B" />
         </div>
       </section>
 
