@@ -498,7 +498,7 @@ export function ImageSonification() {
             <span className="sr-only">Loop the whole collection</span>
           </button>
         </div>
-        <label>
+        {/* <label>
           Speed
           <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))}>
             <option value="0.5">0.5×</option>
@@ -507,7 +507,7 @@ export function ImageSonification() {
             <option value="1.5">1.5×</option>
             <option value="2">2×</option>
           </select>
-        </label>
+        </label> */}
         <label className="volume-label">
           Volume
           <input
@@ -559,7 +559,7 @@ export function ImageSonification() {
             );
           })}
         </fieldset>
-        <label>
+        {/* <label>
           Narration voice speed
           <select
             value={voiceRate}
@@ -572,7 +572,7 @@ export function ImageSonification() {
             <option value="1.25">1.25×</option>
             <option value="1.5">1.5×</option>
           </select>
-        </label>
+        </label> */}
         <label>
           Narration voice
           <select
