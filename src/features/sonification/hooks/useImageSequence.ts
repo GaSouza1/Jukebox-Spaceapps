@@ -3,6 +3,9 @@
  * (Scientific + Cinematic, Tone.js), one NarrationLayer (Web Speech) and the
  * SequencePlayer that runs them image after image. Everything is created on
  * mount and disposed on unmount.
+ *
+ * Play claims the shared Transport (transportOwner.ts): the region comparison
+ * stops if it was playing, and this sequence stops if the comparison starts.
  */
 import { useEffect, useRef, useState } from "react";
 import { resolveRenderedSentence } from "../engine/narrationLanguage";
@@ -19,6 +22,7 @@ import {
   type SequencePhase,
   type SoundLayer,
 } from "../engine/sequencePlayer";
+import { claimTransport, releaseTransport, type TransportOwner } from "../engine/transportOwner";
 
 interface Settings {
   queue: SequenceItem[];
@@ -44,6 +48,9 @@ export function useImageSequence({
   const controllerRef = useRef<PlaybackController | null>(null);
   const narratorRef = useRef<NarrationLayer | null>(null);
   const currentStepRef = useRef(-1);
+  const ownerRef = useRef<TransportOwner | null>(null);
+  /** True when the last stop came from the comparison taking the audio over. */
+  const interruptedRef = useRef(false);
 
   const [status, setStatus] = useState<PlaybackStatus>("idle");
   const [current, setCurrent] = useState<{ id: string | null; phase: SequencePhase | null }>({
@@ -87,10 +94,20 @@ export function useImageSequence({
         onError: setError,
       },
     );
+    const owner: TransportOwner = {
+      name: "image sonification",
+      onTransportLost: () => {
+        if (sequence?.state.status === "idle") return;
+        interruptedRef.current = true;
+        sequence?.stop();
+      },
+    };
     sequenceRef.current = sequence;
     controllerRef.current = controller;
     narratorRef.current = narrator;
+    ownerRef.current = owner;
     return () => {
+      releaseTransport(owner);
       sequence.dispose();
       narrator.dispose();
       controller.dispose();
@@ -121,6 +138,7 @@ export function useImageSequence({
     phase: current.phase,
     currentStep,
     currentStepRef,
+    interruptedRef,
     warning: error ? null : (narrationWarning ?? sequenceWarning ?? sampleWarning),
     error,
     voices,
@@ -129,6 +147,8 @@ export function useImageSequence({
     play(startId: string) {
       setError(null);
       setNarrationWarning(null);
+      interruptedRef.current = false;
+      if (ownerRef.current) claimTransport(ownerRef.current);
       sequenceRef.current?.play(startId);
     },
     pause: () => sequenceRef.current?.pause(),

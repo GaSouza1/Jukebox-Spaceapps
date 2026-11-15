@@ -11,6 +11,7 @@ import {
 } from "../describeImage";
 import { mapAnalysis, TIMBRE_BY_HUE } from "../engine/dataMapper";
 import { STEP_COUNT, type HueFamily, type ReadingDirection } from "../engine/imageAnalyzer";
+import { cinematicProfile, type CinematicProfile } from "../engine/cinematicProfile";
 import { NARRATION_SOURCE_ATTR } from "../engine/narrationLanguage";
 import type { VoiceState } from "../engine/narrationLayer";
 import { BASE_BPM, type PlaybackStatus } from "../engine/playbackController";
@@ -47,6 +48,15 @@ const ORIGIN_TEXT: Record<VoiceState["origin"], string> = {
     "assumed from your browser language, because the language of the translated page could not be identified. If it is wrong, choose a voice",
   manual: "voice chosen manually",
 };
+
+/** The cinematic mood of an image, stated as an artistic choice. */
+function describeMood(mood: CinematicProfile) {
+  const name =
+    mood.label === "blended"
+      ? `a blend of energetic and contemplative (${Math.round(mood.energy * 100)} % energetic)`
+      : mood.label;
+  return `Cinematic mood for this image: ${name}. An artistic choice from its overall brightness and contrast (score ${mood.score.toFixed(2)}), not a measurement of anything physical.`;
+}
 
 function languageName(lang: string) {
   try {
@@ -152,7 +162,11 @@ export function ImageSonification() {
     let message: string | null = null;
     if (status === "idle") {
       if (prev.status !== "idle") {
-        message = stoppedByUser.current ? "Stopped. Back to the start." : "Playback finished.";
+        message = player.interruptedRef.current
+          ? "Image sonification stopped because the data sonification started."
+          : stoppedByUser.current
+            ? "Stopped. Back to the start."
+            : "Playback finished.";
       }
       stoppedByUser.current = false;
     } else if (currentId && currentId !== prev.id) {
@@ -190,6 +204,7 @@ export function ImageSonification() {
 
   const events = useMemo(() => (analysis ? mapAnalysis(analysis) : []), [analysis]);
   const profile = useMemo(() => (analysis ? describeProfile(analysis) : []), [analysis]);
+  const mood = useMemo(() => (analysis ? cinematicProfile(analysis) : null), [analysis]);
   const script = queue[selectedIndex]?.narration ?? [];
   const current = currentStep >= 0 ? events[currentStep] : undefined;
   const progress = currentStep >= 0 && events.length ? (currentStep + 1) / events.length : 0;
@@ -294,7 +309,7 @@ export function ImageSonification() {
 
       <p id="image-sonification-description" className="sr-only">
         <StableText>
-          {`About this sound: a sound representation of each image in the collection. The collection has ${images.length} ${images.length === 1 ? "image" : "images"}; Play starts at the image shown, number ${selectedIndex + 1}, and continues in order${loop ? ". Loop is on: after the last image, playback returns to the first" : ", ending after the last image"}. ${narrationOn ? "For each image, a spoken description (the Narration layer) comes first, then the sound." : "The Narration layer is off, so each image plays its sound only."} The sound is an exploratory reading of the picture, not a measurement of a scientific variable, because the images have no colour scale. Each image is read in ${STEP_COUNT} slices ${DIRECTION_SPOKEN[direction]}, one short note per slice, about ${durationSeconds} seconds at the current speed. Pitch follows brightness: darker slices play lower notes, brighter slices higher notes, on a continuous scale from 262 to 1047 hertz. Louder notes mean more contrast inside the slice. The instrument tells the colour family: warm colours such as red, orange and yellow play a piano; cool colours such as green, cyan and blue play a soft bell; grey, white or black areas play a pure sine tone. Notes move left or right in the stereo field with the position of the bright areas. A quiet background of slow chords sets the mood but carries no data; it can be switched off with the Cinematic layer checkbox. A text profile of the image and the narration script are available below the controls.`}
+          {`About this sound: a sound representation of each image in the collection. The collection has ${images.length} ${images.length === 1 ? "image" : "images"}; Play starts at the image shown, number ${selectedIndex + 1}, and continues in order${loop ? ". Loop is on: after the last image, playback returns to the first" : ", ending after the last image"}. ${narrationOn ? "For each image, a spoken description (the Narration layer) comes first, then the sound." : "The Narration layer is off, so each image plays its sound only."} The sound is an exploratory reading of the picture, not a measurement of a scientific variable, because the images have no colour scale. Each image is read in ${STEP_COUNT} slices ${DIRECTION_SPOKEN[direction]}, one short note per slice, about ${durationSeconds} seconds at the current speed. Pitch follows brightness: darker slices play lower notes, brighter slices higher notes, on a continuous scale from 262 to 1047 hertz. Louder notes mean more contrast inside the slice. The instrument tells the colour family: warm colours such as red, orange and yellow play a piano; cool colours such as green, cyan and blue play a soft bell; grey, white or black areas play a pure sine tone. Notes move left or right in the stereo field with the position of the bright areas. A quiet, slowly evolving background of chords and textures sets the mood. Its character is an artistic choice from the overall brightness of each image: energetic for bright images, contemplative for dark ones; it carries no data. It can be switched off with the Cinematic layer checkbox. A text profile of the image and the narration script are available below the controls.`}
         </StableText>
       </p>
 
@@ -663,6 +678,7 @@ export function ImageSonification() {
               <li key={line}>{line}</li>
             ))}
           </ul>
+          {mood && <StableText as="p">{describeMood(mood)}</StableText>}
         </details>
       )}
 
@@ -746,18 +762,14 @@ export function ImageSonification() {
               </td>
             </tr>
             <tr>
-              <th scope="row">Mean brightness of every 16 slices</th>
-              <td>Chord (cinematic layer)</td>
+              <th scope="row">Overall brightness, its spread and overall contrast</th>
+              <td>Mood of the cinematic layer</td>
               <td>
-                {/* Chord symbols are notation: translation would turn "Am" into a word. */}
-                Relative order picks the chord <span translate="no">Am, Em, Dm, F, C</span> or{" "}
-                <span translate="no">G</span> (dark to bright). Mood only.
+                One artistic choice per image: brighter images get an energetic mood (busier rhythm,
+                higher register, brighter tone), darker ones a contemplative mood (slow, low, dark),
+                mid images a blend. The chords and notes themselves carry no data. Not a measurement
+                of temperature, vegetation or any physical quantity.
               </td>
-            </tr>
-            <tr>
-              <th scope="row">Mean change between slices</th>
-              <td>Strings brightness and level</td>
-              <td>Filter 450 to 1550 Hz, proportional. Mood only.</td>
             </tr>
             <tr>
               <th scope="row">Image description and whole-image measurements</th>

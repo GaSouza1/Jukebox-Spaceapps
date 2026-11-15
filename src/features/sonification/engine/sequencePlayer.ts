@@ -28,6 +28,8 @@ export interface SequenceItem {
 /** The part of PlaybackController the sequence drives. */
 export interface CompositionEngine {
   prepare(): Promise<void>;
+  /** A new playback session: new cinematic identity. */
+  newSession?(): void;
   play(analysis: ImageAnalysis): Promise<void>;
   pause(): void;
   resume(): Promise<void>;
@@ -131,6 +133,7 @@ export class SequencePlayer {
     // Still inside the Play click: unlock audio now and load the instruments
     // while the first narration is spoken. play() reports a lasting failure.
     this.composition.prepare().catch(() => {});
+    this.composition.newSession?.();
     this.silentRun = 0;
     this.callbacks.onWarning(null);
     this.setStatus("playing");

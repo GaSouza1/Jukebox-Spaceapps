@@ -36,7 +36,7 @@ export function HomePage() {
             </div>
             <div>
               <strong>SCIENTIFIC SOURCES</strong>
-              <span>NASA POWER · GIBS · EIC</span>
+              <span>NASA POWER data · GIBS imagery · EIC links</span>
             </div>
           </div>
         </div>
@@ -63,7 +63,7 @@ export function HomePage() {
           <article>
             <span>02</span>
             <h3>Explore the evidence</h3>
-            <p>Read monthly temperature or precipitation patterns.</p>
+            <p>Read monthly temperature patterns from NASA POWER.</p>
           </article>
           <article>
             <span>03</span>
@@ -73,8 +73,8 @@ export function HomePage() {
         </div>
       </section>
       <div className="home-demo-note">
-        <DataSourceBadge /> Current experience uses clearly labeled synthetic data until NASA APIs
-        are connected.
+        <DataSourceBadge /> Monthly air temperature from the NASA POWER API (MERRA-2 reanalysis),
+        requested live for the regions you choose.
       </div>
     </div>
   );

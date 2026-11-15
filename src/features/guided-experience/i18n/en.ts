@@ -30,7 +30,7 @@ export const guidedText = {
 
   welcome: {
     intro:
-      "Earth Information Jukebox compares an environmental variable, such as temperature or precipitation, between two places on Earth. You can read the comparison as a chart, a text summary or a data table, and you can listen to it as sound.",
+      "Earth Information Jukebox compares an environmental variable, monthly mean air temperature from NASA POWER, between two places on Earth. You can read the comparison as a chart, a text summary or a data table, and you can listen to it as sound.",
     plan: "This guide has five short steps:",
     noAutoplay:
       "Nothing plays until you press a Play button. The guide never changes your regions or the player. Use Next step and Previous step to move, or Close guide to leave at any time.",

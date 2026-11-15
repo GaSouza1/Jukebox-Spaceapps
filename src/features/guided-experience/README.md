@@ -63,7 +63,7 @@ A página nunca rola ao abrir ou fechar o guia: os focos programáticos usam `pr
 1. **Welcome:** propósito da aplicação, a lista das etapas, e o aviso de que nada toca e de que o guia não altera nada.
 2. **Choose two regions:** regiões selecionadas, com coordenadas, linha, timbre e canal; onde ficam os menus reais (com link); regiões disponíveis.
 3. **How sound is organised:** canais e timbres, o aviso sobre fones e a alternativa sequencial pelo menu "Listen to".
-4. **Before you listen:** os 8 fatos de `describeComparisonSonification`, a mesma função usada pela descrição do botão Play, e como ouvir no player (com link).
+4. **Before you listen:** os 9 fatos de `describeComparisonSonification` (inclui meses sem dado e a fonte NASA POWER), a mesma função usada pela descrição do botão Play, e como ouvir no player (com link). Os dados vêm de `useComparisonData`, o mesmo hook da página Explore, e da mesma requisição em cache: o guia nunca descreve números diferentes dos exibidos nem faz requisições a mais. Enquanto os dados carregam (ou se falharem), a etapa diz isso em vez dos fatos.
 5. **Ways to explore:** links para o resumo do gráfico, a tabela, o mapa, o player e a sonificação de imagem. Fora da Explore, os links levam à página Explore.
 
 ## Compatibilidade com a tradução automática do navegador
@@ -113,7 +113,13 @@ Também usam textos de `i18n/en.ts`:
 - `ComparisonControls.tsx`: dica do grupo de regiões;
 - `SonificationPlayer.tsx`: dica do menu "Listen to".
 
-Os fatos científicos vêm de `src/features/sonification/describeSonification.ts`, sem uma segunda implementação.
+Os fatos científicos vêm de `src/features/sonification/describeSonification.ts`, sem uma segunda implementação. Os dados vêm de `src/features/data/useComparisonData.ts`, o mesmo hook da página Explore.
+
+**Comparação com dados reais (15/11/2026).** A regra "o leitor de tela é o único narrador" continua valendo para a comparação: ela não usa `speechSynthesis`. Estados novos seguem os padrões acima:
+
+- carregamento e conclusão em `role="status"`, uma mensagem cada; erro em `role="alert"`;
+- o botão Play da comparação nunca sai da ordem de Tab: enquanto os dados não estão prontos (ou as regiões não são comparáveis), ele fica com `aria-disabled="true"` e `aria-describedby` apontando para o motivo;
+- o slider de posição tem rótulo visível ("Playback position").
 
 **Removidos nesta refatoração:**
 
@@ -134,7 +140,7 @@ Os fatos científicos vêm de `src/features/sonification/describeSonification.ts
 | Iniciar, avançar, voltar, pular e encerrar           | Atendido     | Foco no título correto a cada passo; restauração do foco ao fechar ou finalizar                                              |
 | Sem duplicação excessiva de anúncios                 | Atendido     | Nenhuma mensagem de status ao iniciar ou navegar o guia                                                                      |
 | Controles originais reutilizados                     | Atendido     | Exatamente 2 menus de região na página; o guia usa links para os controles reais                                             |
-| Descrições científicas a partir dos dados existentes | Atendido     | Os 8 fatos da etapa 4 aparecem na descrição do botão Play                                                                    |
+| Descrições científicas a partir dos dados existentes | Atendido     | Os 9 fatos da etapa 4 aparecem na descrição do botão Play; com dados reais, os números do guia e da página coincidem (E2E de 15/11/2026) |
 | Sem voz própria nem reconhecimento de voz            | Atendido     | Nenhum uso de Speech APIs; contador de `speechSynthesis.speak` igual a 0                                                     |
 | Nenhum áudio automático                              | Atendido     | Nível de saída 0 ao carregar e durante todo o guia, em todas as páginas                                                      |
 | Melhorias anteriores funcionando                     | Atendido     | Player (modos, avisos), sonificação de imagem, resumo e tabela, mapa e legenda da imagem verificados                         |

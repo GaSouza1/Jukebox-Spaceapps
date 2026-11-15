@@ -1,7 +1,8 @@
-import { useMemo, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router";
-import { formatCoordinates } from "../../comparison/components/RegionSelector";
-import { createDemoSeries, regions, type IndicatorId } from "../../data/demoData";
+import { errorText, loadingText } from "../../comparison/dataStatus";
+import { formatCoordinates, regions } from "../../data/regions";
+import { useComparisonData } from "../../data/useComparisonData";
 import {
   describeComparisonSonification,
   REGION_SOUND,
@@ -102,21 +103,6 @@ function ExploreLink({ hash, children }: { hash: string; children: ReactNode }) 
   return <Link to="/explore">{children}</Link>;
 }
 
-/** The comparison as currently selected in the store, independent of the page. */
-function useSelectedSeries() {
-  const { regionA, regionB, indicator, startYear, endYear } = useComparisonStore();
-  return useMemo(
-    () =>
-      regionA && regionB
-        ? {
-            seriesA: createDemoSeries(regionA, indicator as IndicatorId, startYear, endYear),
-            seriesB: createDemoSeries(regionB, indicator as IndicatorId, startYear, endYear),
-          }
-        : null,
-    [regionA, regionB, indicator, startYear, endYear],
-  );
-}
-
 function WelcomeStep() {
   const t = guidedText;
   return (
@@ -208,14 +194,22 @@ function SpatialStep() {
 function PrepareStep() {
   const t = guidedText.prepare;
   const speed = useComparisonStore((s) => s.playbackSpeed);
-  const selected = useSelectedSeries();
-  if (!selected) return null;
-  const description = describeComparisonSonification(
-    selected.seriesA,
-    selected.seriesB,
-    speed,
-    "both",
-  );
+  // The same data as the Explore page (one shared request per region), on any page.
+  const state = useComparisonData();
+  if (!state) return null;
+  if (state.status !== "ready") {
+    return (
+      <>
+        <StableText as="p">
+          {state.status === "loading" ? loadingText(state.loading) : errorText(state)}
+        </StableText>
+        <p>
+          <ExploreLink hash="player-title">{t.goTo}</ExploreLink>
+        </p>
+      </>
+    );
+  }
+  const description = describeComparisonSonification(state.data, speed, "both");
   return (
     <>
       <p>{t.intro}</p>
