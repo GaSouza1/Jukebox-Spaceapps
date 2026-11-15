@@ -1,10 +1,13 @@
 # Image sonification — design and mappings
 
-The image sonification turns an image into a short (≈29 s at 1×) composition
-made of two independent layers:
+The image sonification plays a **collection** of images, one after the other.
+Each image becomes a short (≈29 s at 1×) composition, preceded by a spoken
+description. There are three independent layers:
 
 - **Scientific layer**: one note per image slice, with values that can be audited.
 - **Cinematic layer**: slow, consonant harmony underneath. It sets the mood only.
+- **Narration layer**: a spoken description of the image, played before its
+  composition. It uses the browser's speech synthesis and carries no data notes.
 
 ## Interpretation status
 
@@ -23,15 +26,21 @@ sonify that value instead of luma.
 
 ## Pipeline
 
-| Module                           | File                                                 | Responsibility                                                  |
-| -------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------- |
-| ImageAnalyzer                    | `engine/imageAnalyzer.ts`                            | Downscale (≤ 480 px), cut into 96 slices, compute raw features  |
-| DataMapper                       | `engine/dataMapper.ts`                               | The only place data becomes sound parameters                    |
-| ScientificLayer / CinematicLayer | `engine/layers.ts`                                   | Turn mapped parameters into notes                               |
-| InstrumentManager                | `engine/instrumentManager.ts`                        | Tone.js nodes, buses, samples, fallback, disposal               |
-| SynchronizationManager           | `engine/synchronization.ts`                          | Step index from the Transport clock, UI updates via `Tone.Draw` |
-| PlaybackController               | `engine/playbackController.ts`                       | Play / pause / resume / stop, speed, volume, layer toggles      |
-| UI                               | `components/ImageAnalyzer.tsx` (`ImageSonification`) | Controls, scan cursor, data strip, live readout                 |
+| Module                           | File                                                                                       | Responsibility                                                                              |
+| -------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| ImageAnalyzer                    | `engine/imageAnalyzer.ts`                                                                  | Downscale (≤ 480 px), cut into 96 slices, compute raw features                              |
+| DataMapper                       | `engine/dataMapper.ts`                                                                     | The only place data becomes sound parameters                                                |
+| ScientificLayer / CinematicLayer | `engine/layers.ts`                                                                         | Turn mapped parameters into notes                                                           |
+| InstrumentManager                | `engine/instrumentManager.ts`                                                              | Tone.js nodes, buses, samples, fallback, disposal                                           |
+| SynchronizationManager           | `engine/synchronization.ts`                                                                | Step index from the Transport clock, UI updates via `Tone.Draw`                             |
+| PlaybackController               | `engine/playbackController.ts`                                                             | Play / pause / resume / stop, speed, volume, layer toggles                                  |
+| SequencePlayer                   | `engine/sequencePlayer.ts`                                                                 | Runs the collection: narration, then composition, per image; loop, next / previous, removal |
+| NarrationLayer                   | `engine/narrationLayer.ts`                                                                 | Web Speech API: voice choice, sentence-by-sentence speech, pause / resume / cancel          |
+| Text                             | `describeImage.ts`                                                                         | Text profile, whole-image summary and narration script                                      |
+| Narration language               | `engine/narrationLanguage.ts`                                                              | Reads each sentence from the page and resolves its language (follows page translation)      |
+| ImageCollection                  | `collection/imageCollection.ts`, `collection/useImageCollection.ts`                        | Ordered images, object URLs, one analysis per image and direction                           |
+| Engine wiring                    | `hooks/useImageSequence.ts`                                                                | Creates and disposes the controller, narrator and sequence                                  |
+| UI                               | `components/ImageAnalyzer.tsx` (`ImageSonification`), `components/ImageCollectionList.tsx` | Controls, collection strip, scan cursor, data strip, live readout                           |
 
 ## Feature extraction (per slice)
 
@@ -99,6 +108,195 @@ data note is dropped.
 - **Toggles:** each layer can be muted independently in the UI to check by ear
   that the data is unchanged.
 
+## Collection and sequence
+
+### Collection
+
+- **Initial state:** the demo image (`src/assets/refence.png`) is the first and
+  only item, and it is selected. It can be moved but not removed, so the
+  collection is never empty.
+- **Adding:** the file input accepts several files (`accept="image/*"`, the same
+  formats as before). Files whose MIME type is not `image/*` are rejected and
+  named in an alert. Each accepted file gets one object URL
+  (`URL.createObjectURL`). Two files with the same name get distinct names
+  (`photo.png`, `photo.png (2)`), so screen readers can tell them apart.
+- **Analysis:** every image is analysed from its own off-screen `<img>`, so the
+  sequence can play images that are not on screen. Results are cached per image
+  and reading direction. A file that cannot be decoded is marked "could not be
+  read", stays in the list so it can be removed, and is skipped by the sequence.
+- **Order:** "Move earlier" / "Move later" buttons on each item. Drag and drop is
+  not used. After a move, focus stays on the moved item (the same button, or the
+  other one when the item reaches an end).
+- **Removal:** revokes the object URL immediately and drops the image's cached
+  analyses. A late analysis result for a removed image is discarded. Focus moves
+  to the item that took its place.
+- **Unmount:** every remaining object URL is revoked.
+- **Selection vs playback:** selecting an item only changes the image shown. It
+  never starts, restarts or stops playback. When the sequence starts a new
+  image, the view follows it. While another image is shown, the scan cursor,
+  slice readout and progress bar stay idle.
+
+### Sequence
+
+```text
+Play (starts at the selected image)
+  └─ for each image, in collection order
+       ├─ Narration   (if on and available)
+       ├─ Composition (Scientific + Cinematic, if at least one is on)
+       └─ 1.2 s gap, then the next image
+            └─ after the last one: loop on → first image; loop off → finished
+```
+
+- **Per image:** each image goes through the existing engine unchanged
+  (`PlaybackController.play(analysis)`): same 96 slices, same duration, same
+  synchronisation.
+- **Gap:** a 1.2 s gap between images lets the cinematic tail fade before the
+  next narration starts.
+- **Order changes:** the next image is read from the current collection order
+  when the current one ends, so a reorder during playback is respected.
+- **Previous / Next:** jump at once and keep the play / pause state. Without
+  loop, they are disabled at the first / last image. With loop they wrap.
+- **Loop:** a toggle button with `aria-pressed`. It repeats the whole
+  collection, not single notes or slices. With one image, that image repeats.
+  It can be changed at any time; it takes effect at the next image boundary.
+- **Removing the playing image:** its sound and speech stop at once, and playback
+  moves on to the image that took its place (keeping a pause). If it was the
+  last image and loop is off, playback ends.
+- **Stale callbacks:** every run of an image carries a token. Stop, Next,
+  Previous and removal bump it, so a late narration end, composition end or
+  timer from an earlier run is ignored and can never start a removed image.
+- **Unplayable collections:** if every image in a row produced no sound (for
+  example all failed to load and narration is off), the loop ends with a
+  warning instead of spinning.
+
+## Narration layer
+
+### Sources of the description
+
+The narration script (`narrationScript` in `describeImage.ts`) uses, in order:
+
+1. **Team-written description:** the human-written, checked description of the
+   demo image. Spoken as "Description written by the project team: …".
+2. **Uploader's description:** typed in the optional "Your description of this
+   image" field. Spoken as "Description provided by the person who added this
+   image. The app has not verified it." followed by the text.
+3. **No description:** the narration says the image has no validated
+   description, explains that brightness, contrast, colour families and
+   horizontal distribution are converted into sound, and that the analysis does
+   not identify objects or geographical features.
+
+The script always starts with the image's position and name ("Image 2 of 3:
+photo.png"). Then it gives the **measured** features of that image, computed by
+`summarizeAnalysis` from the analysis:
+
+- mean brightness;
+- the share of warm, cool and neutral pixels;
+- the brightest and darkest third along the reading direction;
+- the contrast level and where it is highest;
+- whether bright areas lean left, right or sit near the centre.
+
+When a description was given, the script adds that the sound comes from the
+measurements, not from the description.
+
+**Scientific constraint:** the engine does not recognise objects. Nothing in the
+generated text names a forest, city, river, ocean, fire or any other feature.
+Such words can only come from a person's description, and that text is always
+attributed to whoever wrote it. A unit test checks the generated text against a
+list of such words.
+
+### Speech
+
+- **API:** Web Speech API (`speechSynthesis`, `SpeechSynthesisUtterance`). It is
+  native, so no dependency is added.
+- **Voice:** chosen per sentence from the language of that sentence (see
+  "Page translation" below). Preference order: a voice for the exact language
+  and region, then the same language in another region (the browser's default
+  voice first, then a local one). The list is refreshed on `voiceschanged`.
+  Without a voice for the language, `utterance.lang` is still set and the
+  browser picks one. The status line under the layers says which language and
+  voice are used, and where the language came from.
+- **Manual voice:** the "Narration voice" select offers "Automatic (follows the
+  page language)" and every voice installed in the browser. A chosen voice is
+  used for every sentence, whatever the language; Automatic restores the
+  per-sentence choice. Changes apply from the next sentence.
+- **One utterance per sentence:** pause cancels the current sentence and resume
+  speaks it again from its start. `speechSynthesis.pause()` is not used, because
+  some browsers ignore it, and Chrome cuts long utterances.
+- **Volume and rate:** the main Volume slider also sets the narration volume.
+  "Narration voice speed" (0.8×–1.5×) sets the speech rate. The playback Speed
+  only affects the composition. A change applies from the next sentence: an
+  utterance cannot be changed once spoken.
+- **Failure handling:** without speech synthesis, the Narration checkbox and the
+  voice speed are disabled and the reason is shown. Playback still works. A
+  speech error, or an engine that never answers (watchdog), shows a warning, and
+  the sequence goes on with the composition.
+- **User action:** narration only runs from the Play button, never on load.
+- **Toggle:** turning Narration off while it speaks skips the rest of the
+  sentence; the composition of the same image follows. Turning it on applies
+  from the next image.
+- **Overlap:** narration and composition never play at the same time for an
+  image.
+
+### Page translation (e.g. Chrome's "Translate this page")
+
+Browser translation only rewrites the DOM: it replaces text nodes with
+translated `<font>` elements. Strings kept in JavaScript, like the narration
+script, are not translated. So:
+
+- **Rendered source:** the script of **every** image in the collection is
+  rendered in a hidden `.narration-source` block (`data-narration-for` = image
+  id, `aria-hidden`, clipped like `.sr-only` so it stays in the layout and is
+  translated). The visible "Narration script for this image" stays the readable
+  copy.
+- **Read before each sentence:** `resolveRenderedSentence`
+  (`engine/narrationLanguage.ts`) reads the sentence from that block right
+  before it is spoken. The voice therefore says what the page shows, in the
+  page's current language. A translation switched on or off during a narration
+  applies from the next sentence; the narration is not restarted.
+- **Language of each sentence**, most reliable signal first:
+  1. _Original:_ the rendered text equals the script, so it is English. This
+     holds even if `<html lang>` changed (Chrome may not have translated that
+     node yet).
+  2. _Page:_ the text differs and `<html lang>` no longer says English. Chrome
+     usually sets it to the target language, but this is not guaranteed and is
+     not relied on alone.
+  3. _Detector:_ Chrome's built-in `LanguageDetector` API, only when it is
+     already `"available"` on the device (it never triggers a model download)
+     and its confidence is at least 0.7.
+  4. _Browser:_ none of the above. Translation targets the browser language by
+     default, so `navigator.languages[0]` is used. The status line says this is
+     an assumption and suggests choosing a voice.
+
+No browser exposes "the language this page was translated into", so steps 2–4
+are best effort. When they are wrong, the manual voice is the fallback.
+
+The same translation concern shaped the collection list: an element whose text
+changes is re-keyed (`StableText`), and React inserts the new element before
+its next sibling. That sibling must be an element, never a bare text node:
+translation replaces text nodes, and inserting before a replaced (detached) one
+throws `NotFoundError: Failed to execute 'insertBefore'`. That is what broke
+reordering on a translated page. File names are wrapped in
+`<span translate="no">`.
+
+### Accessibility
+
+- **Separate from screen readers:** the Narration layer is the app's own voice,
+  independent of the screen reader. Its text is never sent to a live region, so
+  the screen reader does not read the same text at the same time.
+- **Live region:** it only gets short messages:
+  - the image now playing ("Now playing image 2 of 3, photo.png.");
+  - pause, resume, stop and finish;
+  - collection changes.
+- **Three kinds of text, kept apart:**
+  - _Image description:_ the figure caption (team, uploader or none).
+  - _Sound transformation:_ the hidden paragraph that Play references with
+    `aria-describedby`, read before any sound. It now also gives the collection
+    size, the start image, the loop state and whether narration comes first.
+  - _Narration script:_ a "Narration script for this image" disclosure with the
+    exact sentences that will be spoken.
+- **Onboarding:** the Screen Reader First onboarding does not use this voice; it
+  still relies only on the user's screen reader.
+
 ## Playback and synchronisation
 
 - **Start:** `Tone.start()` runs on the Play click. Instruments are built and
@@ -113,10 +311,18 @@ data note is dropped.
 - **Pause:** releases all voices (smooth envelope release). On resume, the
   current chord is voiced again for the rest of its section.
 - **Stop and natural end:** reset the Transport. A natural end lets the
-  cinematic tail ring out.
-- **Cleanup on unmount:** `PlaybackController.dispose()` stops the Transport,
-  clears its events, cancels Draw callbacks, and disposes every node and sample
-  buffer. Object URLs of uploaded images are revoked.
+  cinematic tail ring out, then fires `onEnded`. The sequence uses it to move
+  on to the next image.
+- **End detection:** the natural end is detected with a timer, not `Tone.Draw`.
+  Draw runs on animation frames, which pause in a background tab, and a
+  sequence must keep moving there. Cursor and readout updates still use Draw.
+- **Loading status:** "Loading" is shown only when the samples have not been
+  loaded yet. Instruments start loading on the Play click, while the first
+  narration is spoken.
+- **Cleanup on unmount:** `SequencePlayer.dispose()` stops everything, then
+  `NarrationLayer.dispose()` cancels speech. `PlaybackController.dispose()`
+  stops the Transport, clears its events, cancels Draw callbacks, and disposes
+  every node and sample buffer. Object URLs of uploaded images are revoked.
 
 ## Samples
 
@@ -143,3 +349,43 @@ data note is dropped.
   about 1 % of the image along the reading axis are smoothed away.
 - **Synthesised strings:** there are no string samples. Only the
   piano uses recorded samples.
+- **Voices depend on the browser and system:** quality, language coverage and
+  timing vary. Some engines report no voices at all; narration is then skipped
+  with a warning.
+- **Narration settings apply per sentence:** a volume or voice-speed change takes
+  effect at the next sentence.
+- **Long narration:** with the team description, the demo narration lasts about
+  40 s at 1.5× voice speed. Narration can be turned off or sped up.
+- **Silent composition when both music layers are muted mid-image:** the
+  Transport keeps running so the data timing is unchanged. Muting both before an
+  image starts skips its composition.
+- **Translation is best effort:** see "Page translation". The language of a
+  translated page is inferred (page `lang`, browser detector, browser language),
+  never read from a browser API, because none exists. The text the uploader
+  typed is treated like the rest: if the page is not translated, it is spoken
+  with the automatic (English) voice even if it was written in another
+  language; choose a voice manually in that case.
+- **Labels of icon buttons:** the `aria-label` of the move / remove buttons is
+  set in JavaScript; whether a page translation translates it depends on the
+  browser.
+
+## Tests
+
+`pnpm test` runs the unit tests with Node's built-in test runner:
+
+- `engine/sequencePlayer.test.ts`: order, loop (including a single image), stop
+  during the loop, pause / resume in each phase, next / previous, removal of the
+  playing image, reorder during playback, each layer combination, failures.
+- `engine/narrationLanguage.test.ts`: language resolution (original, page
+  `lang`, detector, browser fallback).
+- `engine/narrationLayer.test.ts`: voice choice by language, per-sentence
+  re-resolution (translation mid-narration), manual voice, sentence order,
+  pause / resume,
+  cancel, speech errors, missing speech synthesis.
+- `describeImage.test.ts`: the measured summary, the source order of the
+  description, and the absence of semantic claims.
+- `collection/imageCollection.test.ts`: move, remove (the demo is protected),
+  file filtering.
+
+`scripts/test-hooks.mjs` resolves extensionless imports and the `@/` alias, so
+no test dependency is needed. `pnpm typecheck` runs TypeScript.

@@ -1,33 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StableText } from "@/components/StableText";
-import demoImage from "@/assets/refence.png";
+import { useImageCollection } from "../collection/useImageCollection";
 import {
-  lumaToFrequency,
-  mapAnalysis,
-  TIMBRE_BY_HUE,
-  type ScientificTimbre,
-} from "../engine/dataMapper";
-import {
-  analyzeImage,
-  STEP_COUNT,
-  type HueFamily,
-  type ImageAnalysis,
-  type ReadingDirection,
-} from "../engine/imageAnalyzer";
-import type { LayerName } from "../engine/instrumentManager";
-import { BASE_BPM, PlaybackController, type PlaybackStatus } from "../engine/playbackController";
+  describeProfile,
+  DIRECTION_SPOKEN,
+  HUE_LABEL,
+  narrationScript,
+  PROFILE_SECTIONS,
+  TIMBRE_LABEL,
+} from "../describeImage";
+import { mapAnalysis, TIMBRE_BY_HUE } from "../engine/dataMapper";
+import { STEP_COUNT, type HueFamily, type ReadingDirection } from "../engine/imageAnalyzer";
+import { NARRATION_SOURCE_ATTR } from "../engine/narrationLanguage";
+import type { VoiceState } from "../engine/narrationLayer";
+import { BASE_BPM, type PlaybackStatus } from "../engine/playbackController";
+import { neighbourId, type SequenceItem, type SoundLayer } from "../engine/sequencePlayer";
+import { useImageSequence } from "../hooks/useImageSequence";
+import { ImageCollectionList } from "./ImageCollectionList";
 
 const STATUS_LABEL: Record<PlaybackStatus, string> = {
   idle: "READY",
   loading: "LOADING",
   playing: "PLAYING",
   paused: "PAUSED",
-};
-const HUE_LABEL: Record<HueFamily, string> = { warm: "warm", cool: "cool", neutral: "neutral" };
-const TIMBRE_LABEL: Record<ScientificTimbre, string> = {
-  piano: "sampled piano",
-  bell: "soft bell",
-  glass: "pure sine tone",
 };
 const HUE_COLOR: Record<HueFamily, string> = {
   warm: "#ff9b55",
@@ -38,156 +33,215 @@ const DIRECTION_LABEL: Record<ReadingDirection, string> = {
   vertical: "North → South (rows)",
   horizontal: "West → East (columns)",
 };
-const DIRECTION_SPOKEN: Record<ReadingDirection, string> = {
-  vertical: "from the top of the image to the bottom (north to south)",
-  horizontal: "from the left edge of the image to the right (west to east)",
+const LAYER_LABEL: Record<SoundLayer, string> = {
+  scientific: "Scientific (data notes)",
+  cinematic: "Cinematic (background)",
+  narration: "Narration (spoken description)",
 };
-/**
- * Human-written description of the demo image. It is kept apart from the
- * computed text profile: the app measures brightness and colour, it does not
- * recognise objects or places.
- */
-interface ImageDescription {
-  alt: string;
-  /** Written by a person (project team), or null when none exists. */
-  humanText: string | null;
-}
-const DEMO_DESCRIPTION: ImageDescription = {
-  alt: "Demo image, a global map in false colour. Description below.",
-  humanText:
-    "A global map in false colour. Swirling reds and oranges cover the northern half, yellow and cyan bands cross the tropics, deep blue covers the southern oceans, and white Antarctic ice runs along the bottom. The image has no legend or colour scale.",
-};
-const PROFILE_SECTIONS = 6;
 const STEP_SECONDS = 60 / BASE_BPM / 2;
+const ORIGIN_TEXT: Record<VoiceState["origin"], string> = {
+  original: "the narration text is not translated",
+  page: "the language the page was translated into",
+  detector: "detected by the browser from the translated text",
+  browser:
+    "assumed from your browser language, because the language of the translated page could not be identified. If it is wrong, choose a voice",
+  manual: "voice chosen manually",
+};
 
-/** Plain-text profile of the image, computed from the analysis only. */
-function describeProfile(analysis: ImageAnalysis) {
-  const size = Math.ceil(analysis.steps.length / PROFILE_SECTIONS);
-  const edge = analysis.direction === "vertical" ? ["top", "bottom"] : ["left edge", "right edge"];
-  return Array.from({ length: PROFILE_SECTIONS }, (_, s) => {
-    const slice = analysis.steps.slice(s * size, (s + 1) * size);
-    const luma = slice.reduce((a, step) => a + step.luma, 0) / slice.length;
-    const shares = { warm: 0, cool: 0, neutral: 0 };
-    for (const step of slice) {
-      for (const hue of Object.keys(shares) as HueFamily[]) shares[hue] += step.hueShares[hue];
-    }
-    const dominant = (Object.keys(shares) as HueFamily[]).reduce((a, b) =>
-      shares[b] > shares[a] ? b : a,
-    );
-    const where = s === 0 ? ` (${edge[0]})` : s === PROFILE_SECTIONS - 1 ? ` (${edge[1]})` : "";
-    return `Slices ${s * size + 1}–${s * size + slice.length}${where}: mostly ${HUE_LABEL[dominant]} hues (${Math.round((shares[dominant] / slice.length) * 100)}%, ${TIMBRE_LABEL[TIMBRE_BY_HUE[dominant]]}), mean brightness ${luma.toFixed(2)}, pitch around ${Math.round(lumaToFrequency(luma))} Hz.`;
-  });
+function languageName(lang: string) {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "language" }).of(lang) ?? lang;
+  } catch {
+    return lang; // Not a valid BCP 47 tag: show it as given.
+  }
+}
+
+/** Status of the narration voice, in plain words. */
+function describeVoice(available: boolean, state: VoiceState | null, manualName: string | null) {
+  if (!available) return "Narration is not available: this browser has no speech synthesis.";
+  const tail = "It uses the browser's speech synthesis, not your screen reader.";
+  if (!state) {
+    return manualName
+      ? `Narration voice: ${manualName}, chosen manually. ${tail}`
+      : `Narration language: automatic. It follows the narration text shown on the page: English, or the language the page is translated into. ${tail}`;
+  }
+  const voice = state.voice ?? "chosen by the browser (no installed voice for this language)";
+  return `Narration language: ${languageName(state.lang)} (${state.lang}), ${ORIGIN_TEXT[state.origin]}. Voice: ${voice}. ${tail}`;
 }
 
 export function ImageSonification() {
-  const imgRef = useRef<HTMLImageElement>(null);
-  const objectUrlRef = useRef<string | null>(null);
-  const controllerRef = useRef<PlaybackController | null>(null);
-  const previousStatus = useRef<PlaybackStatus>("idle");
+  const previous = useRef<{ status: PlaybackStatus; id: string | null }>({
+    status: "idle",
+    id: null,
+  });
   const stoppedByUser = useRef(false);
-  const currentStepRef = useRef(-1);
+  /** Context prepended to the next playback announcement (e.g. a removal). */
+  const pendingNote = useRef<string | null>(null);
 
-  const [image, setImage] = useState(demoImage);
-  const [imageDescription, setImageDescription] = useState<ImageDescription>(DEMO_DESCRIPTION);
-  const [imageLoads, setImageLoads] = useState(0);
   const [direction, setDirection] = useState<ReadingDirection>("vertical");
-  const [analysis, setAnalysis] = useState<ImageAnalysis | null>(null);
-  const [status, setStatus] = useState<PlaybackStatus>("idle");
-  const [currentStep, setCurrentStep] = useState(-1);
   const [speed, setSpeed] = useState(1);
   const [volume, setVolume] = useState(0.7);
-  const [layers, setLayers] = useState<Record<LayerName, boolean>>({
+  const [voiceRate, setVoiceRate] = useState(1);
+  const [manualVoice, setManualVoice] = useState<string | null>(null);
+  const [loop, setLoop] = useState(false);
+  const [layers, setLayers] = useState<Record<SoundLayer, boolean>>({
     scientific: true,
     cinematic: true,
+    narration: true,
   });
-  const [warning, setWarning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
 
-  useEffect(() => {
-    const controller = new PlaybackController({
-      onStatus: setStatus,
-      onStep: (index) => {
-        currentStepRef.current = index;
-        setCurrentStep(index);
-      },
-      onWarning: setWarning,
-    });
-    controllerRef.current = controller;
-    return () => {
-      controller.dispose();
-      controllerRef.current = null;
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-    };
-  }, []);
+  const collection = useImageCollection(direction);
+  const { images, selected, selectedId, analysisFor } = collection;
 
-  useEffect(() => controllerRef.current?.setSpeed(speed), [speed]);
-  useEffect(() => controllerRef.current?.setVolume(volume), [volume]);
-  useEffect(() => {
-    for (const layer of Object.keys(layers) as LayerName[]) {
-      controllerRef.current?.setLayerEnabled(layer, layers[layer]);
-    }
-  }, [layers]);
+  const queue = useMemo<SequenceItem[]>(
+    () =>
+      images.map((image, index) => {
+        const state = analysisFor(image.id);
+        const analysis = state?.status === "ready" ? state.analysis : null;
+        return {
+          id: image.id,
+          analysis,
+          narration: narrationScript({
+            position: index + 1,
+            count: images.length,
+            name: image.name,
+            description: image.description,
+            analysis,
+            failed: state?.status === "error",
+            direction,
+          }),
+        };
+      }),
+    [images, analysisFor, direction],
+  );
 
-  // One short message per playback state change; per-slice values are never announced.
+  const player = useImageSequence({
+    queue,
+    layers,
+    loop,
+    speed,
+    volume,
+    voiceRate,
+    manualVoice,
+  });
+  const voiceOptions = useMemo(
+    () =>
+      [...player.voices].sort(
+        (a, b) => a.lang.localeCompare(b.lang) || a.name.localeCompare(b.name),
+      ),
+    [player.voices],
+  );
+  const manualVoiceName = voiceOptions.find((voice) => voice.id === manualVoice);
+  const { status, currentId, phase } = player;
+  const narrationOn = layers.narration && player.narrationAvailable;
+
+  const positionLabel = (id: string | null) => {
+    const index = images.findIndex((image) => image.id === id);
+    return index < 0 ? "" : `image ${index + 1} of ${images.length}, ${images[index].name}`;
+  };
+
+  // One short message per playback change (state or image); per-slice values are never announced,
+  // and the narration text itself is never sent to the live region.
   useEffect(() => {
-    const previous = previousStatus.current;
-    previousStatus.current = status;
-    if (status === previous) return;
-    if (status === "loading") setAnnouncement("Loading sounds…");
-    else if (status === "playing") {
-      setAnnouncement(previous === "paused" ? "Resumed." : "Playing image sonification.");
-    } else if (status === "paused") {
-      setAnnouncement(
-        currentStepRef.current >= 0
-          ? `Paused at slice ${currentStepRef.current + 1} of ${STEP_COUNT}.`
-          : "Paused at the start.",
-      );
-    } else if (previous === "playing" || previous === "paused" || previous === "loading") {
-      setAnnouncement(stoppedByUser.current ? "Stopped. Back to the start." : "Playback finished.");
+    const prev = previous.current;
+    previous.current = { status, id: currentId };
+    if (prev.status === status && prev.id === currentId) return;
+    const label = positionLabel(currentId);
+    let message: string | null = null;
+    if (status === "idle") {
+      if (prev.status !== "idle") {
+        message = stoppedByUser.current ? "Stopped. Back to the start." : "Playback finished.";
+      }
       stoppedByUser.current = false;
-    }
-  }, [status]);
+    } else if (currentId && currentId !== prev.id) {
+      message =
+        status === "paused"
+          ? `Paused at the start of ${label}.`
+          : `${prev.id ? "Now playing" : "Playing"} ${label}.`;
+    } else if (status === "loading") message = "Loading sounds…";
+    else if (status === "paused") {
+      const step = player.currentStepRef.current;
+      message =
+        phase === "composition" && step >= 0
+          ? `Paused at slice ${step + 1} of ${STEP_COUNT}, ${label}.`
+          : phase === "narration"
+            ? `Paused during the narration of ${label}.`
+            : `Paused before ${label}.`;
+    } else if (status === "playing" && prev.status === "paused") message = "Resumed.";
+    if (!message) return;
+    setAnnouncement(pendingNote.current ? `${pendingNote.current} ${message}` : message);
+    pendingNote.current = null;
+  }, [status, currentId]);
 
+  // The view follows the sequence: each image is shown when it starts playing.
   useEffect(() => {
-    const img = imgRef.current;
-    if (!imageLoads || !img) return;
-    try {
-      setAnalysis(analyzeImage(img, direction));
-      setError(null);
-    } catch (e) {
-      setAnalysis(null);
-      setError(`Could not analyse the image: ${(e as Error).message}`);
-    }
-  }, [imageLoads, direction]);
+    if (currentId) collection.select(currentId);
+  }, [currentId]);
+
+  const selectedState = analysisFor(selectedId);
+  const analysis = selectedState?.status === "ready" ? selectedState.analysis : null;
+  const selectedIndex = images.findIndex((image) => image.id === selectedId);
+  const imageDescription = selected.description;
+  // Cursor, strip, progress and readout follow playback only while the playing image is shown.
+  const viewingPlaying = currentId === selectedId;
+  const currentStep = viewingPlaying && phase === "composition" ? player.currentStep : -1;
 
   const events = useMemo(() => (analysis ? mapAnalysis(analysis) : []), [analysis]);
   const profile = useMemo(() => (analysis ? describeProfile(analysis) : []), [analysis]);
+  const script = queue[selectedIndex]?.narration ?? [];
   const current = currentStep >= 0 ? events[currentStep] : undefined;
   const progress = currentStep >= 0 && events.length ? (currentStep + 1) / events.length : 0;
   const durationSeconds = Math.round((STEP_COUNT * STEP_SECONDS) / speed);
+  const ids = images.map((image) => image.id);
+  const previousId = neighbourId(ids, currentId, -1, loop);
+  const nextId = neighbourId(ids, currentId, 1, loop);
+  const anyLayer = layers.scientific || layers.cinematic || narrationOn;
+  const errorText = error ?? player.error;
 
   const stop = () => {
     if (status !== "idle") stoppedByUser.current = true;
-    controllerRef.current?.stop();
+    player.stop();
   };
 
   const handleUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("The selected file is not an image.");
-      return;
-    }
-    stop();
-    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-    objectUrlRef.current = URL.createObjectURL(file);
-    setAnalysis(null);
-    setImageDescription({
-      alt: `Uploaded image “${file.name}”. Description below.`,
-      humanText: null,
-    });
-    setImage(objectUrlRef.current);
+    const files = Array.from(event.target.files ?? []);
+    // Clearing the input lets the same file be picked again after a removal.
+    event.target.value = "";
+    if (!files.length) return;
+    const { added, rejected } = collection.add(files);
+    setError(
+      rejected.length
+        ? `${rejected.length === 1 ? "This file is" : "These files are"} not an image and ${rejected.length === 1 ? "was" : "were"} not added: ${rejected.join(", ")}.`
+        : null,
+    );
+    if (!added.length) return;
+    if (status === "idle") collection.select(added[0].id);
+    const total = images.length + added.length;
+    setAnnouncement(
+      `Added ${added.length} ${added.length === 1 ? "image" : "images"}. The collection now has ${total} images.`,
+    );
+  };
+
+  const handleRemove = (id: string) => {
+    const image = images.find((item) => item.id === id);
+    if (!image || image.isDemo) return null;
+    const note = `Removed ${image.name}. ${images.length - 1} ${images.length - 1 === 1 ? "image" : "images"} left.`;
+    if (status !== "idle" && id === currentId) {
+      // The sequence moves on (or ends); its announcement carries this note.
+      pendingNote.current = note;
+      player.remove(id);
+    } else setAnnouncement(note);
+    return collection.remove(id).neighbourId;
+  };
+
+  const handleMove = (id: string, delta: -1 | 1) => {
+    const from = images.findIndex((image) => image.id === id);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= images.length) return;
+    collection.move(id, delta);
+    setAnnouncement(`${images[from].name} moved to position ${to + 1} of ${images.length}.`);
   };
 
   const handleDirection = (value: ReadingDirection) => {
@@ -195,18 +249,11 @@ export function ImageSonification() {
     setDirection(value);
   };
 
-  const handlePlayPause = async () => {
-    const controller = controllerRef.current;
-    if (!controller || !analysis) return;
-    if (status === "playing") {
-      controller.pause();
-      return;
-    }
-    try {
+  const handlePlayPause = () => {
+    if (status === "playing") player.pause();
+    else {
       setError(null);
-      await controller.play(analysis);
-    } catch (e) {
-      setError(`Could not start audio: ${(e as Error).message}`);
+      player.play(selectedId);
     }
   };
 
@@ -247,18 +294,28 @@ export function ImageSonification() {
 
       <p id="image-sonification-description" className="sr-only">
         <StableText>
-          {`About this sound: a sound representation of the image shown in this section. It is an exploratory reading of the picture, not a measurement of a scientific variable, because the image has no colour scale. The image is read in ${STEP_COUNT} slices ${DIRECTION_SPOKEN[direction]}, one short note per slice, about ${durationSeconds} seconds at the current speed. Pitch follows brightness: darker slices play lower notes, brighter slices higher notes, on a continuous scale from 262 to 1047 hertz. Louder notes mean more contrast inside the slice. The instrument tells the colour family: warm colours such as red, orange and yellow play a piano; cool colours such as green, cyan and blue play a soft bell; grey, white or black areas play a pure sine tone. Notes move left or right in the stereo field with the position of the bright areas. A quiet background of slow chords sets the mood but carries no data; it can be switched off with the Cinematic layer checkbox. A text profile of the image is available below the controls.`}
+          {`About this sound: a sound representation of each image in the collection. The collection has ${images.length} ${images.length === 1 ? "image" : "images"}; Play starts at the image shown, number ${selectedIndex + 1}, and continues in order${loop ? ". Loop is on: after the last image, playback returns to the first" : ", ending after the last image"}. ${narrationOn ? "For each image, a spoken description (the Narration layer) comes first, then the sound." : "The Narration layer is off, so each image plays its sound only."} The sound is an exploratory reading of the picture, not a measurement of a scientific variable, because the images have no colour scale. Each image is read in ${STEP_COUNT} slices ${DIRECTION_SPOKEN[direction]}, one short note per slice, about ${durationSeconds} seconds at the current speed. Pitch follows brightness: darker slices play lower notes, brighter slices higher notes, on a continuous scale from 262 to 1047 hertz. Louder notes mean more contrast inside the slice. The instrument tells the colour family: warm colours such as red, orange and yellow play a piano; cool colours such as green, cyan and blue play a soft bell; grey, white or black areas play a pure sine tone. Notes move left or right in the stereo field with the position of the bright areas. A quiet background of slow chords sets the mood but carries no data; it can be switched off with the Cinematic layer checkbox. A text profile of the image and the narration script are available below the controls.`}
         </StableText>
       </p>
+
+      <ImageCollectionList
+        images={images}
+        selectedId={selectedId}
+        playingId={currentId}
+        phase={phase}
+        status={status}
+        analysisFor={analysisFor}
+        onSelect={collection.select}
+        onMove={handleMove}
+        onRemove={handleRemove}
+      />
 
       <figure className="image-figure">
         <div className="image-stage">
           <img
-            ref={imgRef}
-            src={image}
+            src={selected.src}
             alt={imageDescription.alt}
-            onLoad={() => setImageLoads((n) => n + 1)}
-            onError={() => setError("The image could not be loaded.")}
+            onError={() => setError(`“${selected.name}” could not be loaded.`)}
           />
           {cursorStyle && <span className="scan-cursor" style={cursorStyle} aria-hidden="true" />}
         </div>
@@ -270,6 +327,11 @@ export function ImageSonification() {
               <strong>Description written by the project team</strong> (not generated by the app):{" "}
               {imageDescription.humanText}
             </span>
+          ) : imageDescription.userText?.trim() ? (
+            <span key="user">
+              <strong>Description provided by the person who added this image</strong> (not verified
+              by the app): {imageDescription.userText}
+            </span>
           ) : (
             <span key="none">
               <strong>No human-written description is available for this image.</strong> The app
@@ -279,6 +341,26 @@ export function ImageSonification() {
           )}
         </figcaption>
       </figure>
+      {/* {!selected.isDemo && (
+        <label className="user-description">
+          Your description of this image (optional)
+          <textarea
+            rows={2}
+            value={imageDescription.userText ?? ""}
+            aria-describedby="user-description-hint"
+            onChange={(e) => collection.setUserDescription(selected.id, e.target.value)}
+          />
+          <span id="user-description-hint">
+            Shown above and spoken by the narration as written by you, not verified by the app. The
+            sound never depends on it.
+          </span>
+        </label>
+      )} */}
+      {selectedState?.status === "error" && (
+        <p className="sonification-alert">
+          <StableText>{`“${selected.name}” could not be analysed (${selectedState.message}). It is skipped during playback; you can remove it from the collection.`}</StableText>
+        </p>
+      )}
 
       {/* Visual brightness profile; the same information is in the text profile below. */}
       <div className="waveform data-strip" aria-hidden="true">
@@ -295,6 +377,26 @@ export function ImageSonification() {
         {currentStep >= 0 && <span style={{ left: `${progress * 100}%` }} />}
       </div>
 
+      <div className="timeline-readout sequence-readout">
+        <StableText as="strong">
+          {currentId
+            ? `Playing ${positionLabel(currentId)}`
+            : `Starts at image ${selectedIndex + 1} of ${images.length}`}
+        </StableText>
+        <StableText>
+          {currentId
+            ? status === "paused"
+              ? "Paused"
+              : phase === "narration"
+                ? "Narration"
+                : phase === "composition"
+                  ? "Sound"
+                  : "Next image"
+            : loop
+              ? "Loop on"
+              : "Loop off"}
+        </StableText>
+      </div>
       <div className="timeline-readout">
         <StableText as="strong">
           {currentStep >= 0 ? `Slice ${currentStep + 1} / ${events.length}` : "Start"}
@@ -310,7 +412,13 @@ export function ImageSonification() {
         max={1}
         aria-labelledby="image-progress-label"
         aria-valuetext={
-          currentStep >= 0 ? `Slice ${currentStep + 1} of ${events.length}` : "Not started"
+          currentStep >= 0
+            ? `Image ${selectedIndex + 1} of ${images.length}, slice ${currentStep + 1} of ${events.length}`
+            : viewingPlaying && phase === "narration"
+              ? `Image ${selectedIndex + 1} of ${images.length}, narration`
+              : currentId && !viewingPlaying
+                ? `Not playing; ${positionLabel(currentId)} is playing`
+                : "Not started"
         }
       />
 
@@ -322,9 +430,23 @@ export function ImageSonification() {
           </button>
           <button
             type="button"
+            className="stop-button skip-button"
+            onClick={player.previous}
+            disabled={status === "idle" || !previousId}
+            title="Previous image"
+          >
+            <span aria-hidden="true">←</span>
+            <span className="sr-only">Play the previous image</span>
+          </button>
+          <button
+            type="button"
             className="play-button"
             onClick={handlePlayPause}
-            disabled={!analysis || status === "loading"}
+            disabled={
+              status === "loading" ||
+              (status === "idle" &&
+                (!anyLayer || !selectedState || selectedState.status === "loading"))
+            }
             aria-describedby="image-sonification-description"
           >
             <span aria-hidden="true">
@@ -339,6 +461,26 @@ export function ImageSonification() {
                     ? "Loading sounds"
                     : "Play the image sonification"}
             </StableText>
+          </button>
+          <button
+            type="button"
+            className="stop-button skip-button"
+            onClick={player.next}
+            disabled={status === "idle" || !nextId}
+            title="Next image"
+          >
+            <span aria-hidden="true">→</span>
+            <span className="sr-only">Play the next image</span>
+          </button>
+          <button
+            type="button"
+            className="stop-button skip-button loop-button"
+            aria-pressed={loop}
+            onClick={() => setLoop((value) => !value)}
+            title="Loop the collection"
+          >
+            <span aria-hidden="true">⟳</span>
+            <span className="sr-only">Loop the whole collection</span>
           </button>
         </div>
         <label>
@@ -381,32 +523,77 @@ export function ImageSonification() {
           </select>
         </label>
         <label>
-          Image file
-          <input type="file" accept="image/*" onChange={handleUpload} />
+          Add image files
+          <input type="file" accept="image/*" multiple onChange={handleUpload} />
         </label>
         <fieldset>
           <legend>Layers</legend>
-          {(["scientific", "cinematic"] as LayerName[]).map((layer) => (
-            <label key={layer} className="layer-toggle">
-              <input
-                type="checkbox"
-                checked={layers[layer]}
-                onChange={(e) => setLayers((prev) => ({ ...prev, [layer]: e.target.checked }))}
-              />
-              {layer === "scientific" ? "Scientific (data notes)" : "Cinematic (background)"}
-            </label>
-          ))}
+          {(Object.keys(LAYER_LABEL) as SoundLayer[]).map((layer) => {
+            const unavailable = layer === "narration" && !player.narrationAvailable;
+            return (
+              <label key={layer} className="layer-toggle">
+                <input
+                  type="checkbox"
+                  checked={layers[layer] && !unavailable}
+                  disabled={unavailable}
+                  aria-describedby={layer === "narration" ? "narration-voice" : undefined}
+                  onChange={(e) => setLayers((prev) => ({ ...prev, [layer]: e.target.checked }))}
+                />
+                {LAYER_LABEL[layer]}
+              </label>
+            );
+          })}
         </fieldset>
+        <label>
+          Narration voice speed
+          <select
+            value={voiceRate}
+            disabled={!player.narrationAvailable}
+            aria-describedby="narration-voice"
+            onChange={(e) => setVoiceRate(Number(e.target.value))}
+          >
+            <option value="0.8">0.8×</option>
+            <option value="1">1×</option>
+            <option value="1.25">1.25×</option>
+            <option value="1.5">1.5×</option>
+          </select>
+        </label>
+        <label>
+          Narration voice
+          <select
+            value={manualVoice ?? "auto"}
+            disabled={!player.narrationAvailable}
+            aria-describedby="narration-voice"
+            onChange={(e) => setManualVoice(e.target.value === "auto" ? null : e.target.value)}
+          >
+            <option value="auto">Automatic (follows the page language)</option>
+            {voiceOptions.map((voice) => (
+              <option key={voice.id} value={voice.id} translate="no">
+                {`${voice.name} (${voice.lang})`}
+              </option>
+            ))}
+          </select>
+        </label>
+        <StableText as="small" id="narration-voice" className="narration-voice">
+          {describeVoice(
+            player.narrationAvailable,
+            player.voiceState,
+            manualVoiceName ? `${manualVoiceName.name} (${manualVoiceName.lang})` : null,
+          )}
+        </StableText>
       </div>
+      {!anyLayer && (
+        <p className="collection-hint">All layers are off. Turn on at least one layer to play.</p>
+      )}
 
-      {error && (
+      {errorText && (
         <p className="sonification-alert" role="alert">
-          <StableText>{error}</StableText>
+          <StableText>{errorText}</StableText>
         </p>
       )}
-      {warning && !error && (
+      {player.warning && !errorText && (
         <p className="sonification-alert" role="status">
-          <StableText>{warning}</StableText>
+          <StableText>{player.warning}</StableText>
         </p>
       )}
       <p className="sr-only" role="status">
@@ -479,6 +666,35 @@ export function ImageSonification() {
         </details>
       )}
 
+      {script.length > 0 && (
+        <details className="mapping-doc">
+          <summary>Narration script for this image</summary>
+          <p>
+            What the Narration layer speaks before the sound of this image. It names only what a
+            person wrote or what the app measured; the app does not identify objects or places.
+          </p>
+          <ol className="image-profile">
+            {script.map((line, index) => (
+              <li key={`${index}-${line}`}>{line}</li>
+            ))}
+          </ol>
+        </details>
+      )}
+
+      {/* The narration reads each sentence from here right before speaking it, so a page
+          translation (which only changes the DOM) reaches the voice. Every image is rendered,
+          not just the one shown. Hidden from view and from assistive technology: the visible
+          script above is the readable copy. */}
+      <div className="narration-source" aria-hidden="true">
+        {queue.map((item) => (
+          <ol key={item.id} {...{ [NARRATION_SOURCE_ATTR]: item.id }}>
+            {item.narration.map((line, index) => (
+              <li key={`${index}-${line}`}>{line}</li>
+            ))}
+          </ol>
+        ))}
+      </div>
+
       <details className="mapping-doc">
         <summary>Mappings and transformations</summary>
         <table>
@@ -542,6 +758,14 @@ export function ImageSonification() {
               <th scope="row">Mean change between slices</th>
               <td>Strings brightness and level</td>
               <td>Filter 450 to 1550 Hz, proportional. Mood only.</td>
+            </tr>
+            <tr>
+              <th scope="row">Image description and whole-image measurements</th>
+              <td>Speech (narration layer)</td>
+              <td>
+                Spoken before each image's sound with the browser's speech synthesis. It carries no
+                data notes and never changes the other layers.
+              </td>
             </tr>
           </tbody>
         </table>

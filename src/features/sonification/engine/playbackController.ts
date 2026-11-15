@@ -19,6 +19,8 @@ export interface PlaybackCallbacks {
   /** Fired in sync with the audio; -1 means "back to start". */
   onStep(index: number): void;
   onWarning(message: string | null): void;
+  /** Natural end of the composition (not fired by stop()). */
+  onEnded?(): void;
 }
 
 export class PlaybackController {
@@ -30,6 +32,7 @@ export class PlaybackController {
   private cinematic: CinematicLayer | null = null;
   private events: ScientificEvent[] = [];
   private repeatId: number | null = null;
+  private finishTimer: number | null = null;
   /** Incremented on stop/dispose so stale async play() calls bail out. */
   private session = 0;
   private disposed = false;
@@ -40,12 +43,22 @@ export class PlaybackController {
 
   constructor(private readonly callbacks: PlaybackCallbacks) {}
 
+  /**
+   * Unlocks the AudioContext and loads the instruments without playing. Call
+   * it from the user's click so audio is allowed and samples load early.
+   */
+  async prepare() {
+    await Tone.start();
+    await this.ensureInstruments();
+  }
+
   async play(analysis: ImageAnalysis) {
     if (this.status === "paused") return this.resume();
     if (this.status !== "idle" || !analysis.steps.length) return;
 
     const session = ++this.session;
-    this.setStatus("loading");
+    // Only a first play has samples to load; later plays start straight away.
+    if (!this.instruments) this.setStatus("loading");
     let instruments: InstrumentManager;
     try {
       await Tone.start();
@@ -121,7 +134,14 @@ export class PlaybackController {
     const index = this.sync.indexAt(time);
     if (index >= this.events.length) {
       this.transport.stop(time);
-      this.sync.notify(() => this.finish(), time);
+      // A timer, not Tone.Draw: Draw runs on animation frames, which stop in a
+      // background tab, and a sequence must still move on to the next image.
+      const session = this.session;
+      const delay = Math.max(0, (time - Tone.immediate()) * 1000);
+      this.finishTimer = window.setTimeout(() => {
+        this.finishTimer = null;
+        if (session === this.session) this.finish();
+      }, delay);
       return;
     }
     const stepSeconds = this.sync.stepSecondsAt(time);
@@ -137,9 +157,12 @@ export class PlaybackController {
     this.resetTransport();
     this.callbacks.onStep(-1);
     this.setStatus("idle");
+    this.callbacks.onEnded?.();
   }
 
   private resetTransport() {
+    if (this.finishTimer !== null) window.clearTimeout(this.finishTimer);
+    this.finishTimer = null;
     this.transport.stop();
     if (this.repeatId !== null) this.transport.clear(this.repeatId);
     this.repeatId = null;

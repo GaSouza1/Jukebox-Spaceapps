@@ -1358,6 +1358,179 @@ fieldset legend,
   align-items: center;
   gap: 0.4rem;
 }
+/* Image collection: compact ordered strip of thumbnails */
+.image-collection {
+  margin-bottom: 1.25rem;
+}
+.collection-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  color: #8f9db0;
+  font: 0.64rem "DM Mono";
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.collection-heading h3 {
+  color: #e3ebf4;
+  font: inherit;
+}
+.collection-hint {
+  margin-top: 0.3rem;
+  color: #8f9db0;
+  font-size: 0.7rem;
+}
+.collection-list {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+  padding-bottom: 0.4rem;
+  overflow-x: auto;
+}
+.collection-item {
+  flex: 0 0 9.5rem;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #2d3d50;
+  background: #0d1a28;
+}
+.collection-item.selected {
+  border-color: #8ac8ff;
+  box-shadow: inset 0 0 0 1px #8ac8ff;
+}
+.collection-item.playing {
+  border-color: #ff9b55;
+}
+.collection-thumb {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.4rem;
+  color: #c9d3de;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+.collection-thumb img {
+  width: 100%;
+  height: 4.5rem;
+  object-fit: cover;
+  border: 1px solid #243448;
+}
+.collection-name {
+  overflow-wrap: anywhere;
+}
+.collection-badge {
+  color: #8f9db0;
+  font: 0.6rem "DM Mono";
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.collection-badge.active {
+  color: #ffc49a;
+}
+.collection-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: auto;
+  padding: 0 0.4rem 0.4rem;
+}
+.collection-actions button {
+  min-width: 28px;
+  min-height: 28px;
+  border: 1px solid #3b4c61;
+  border-radius: 3px;
+  color: #c9d3de;
+  cursor: pointer;
+}
+.collection-actions button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.collection-actions button:last-child:not(:disabled) {
+  margin-left: auto;
+}
+.collection-keep {
+  margin-left: auto;
+  color: #8f9db0;
+  font: 0.56rem "DM Mono";
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.user-description {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+  color: #8f9db0;
+  font: 0.64rem "DM Mono";
+  letter-spacing: 0.08em;
+}
+.user-description textarea {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #33445a;
+  background: #101d2c;
+  color: #e3ebf4;
+  font: 0.78rem "Manrope", sans-serif;
+  letter-spacing: normal;
+}
+.user-description span {
+  font: 0.68rem "Manrope", sans-serif;
+  letter-spacing: normal;
+}
+.sequence-readout {
+  margin-top: 1rem;
+  margin-bottom: 0.3rem;
+}
+.image-sonification .transport {
+  flex-wrap: wrap;
+}
+.image-sonification .transport .skip-button {
+  font-size: 0.85rem;
+}
+.image-options fieldset {
+  flex-wrap: wrap;
+}
+@media (max-width: 800px) {
+  /* Five transport buttons need the full row; the selects go below. */
+  .image-sonification .player-controls .transport {
+    grid-column: 1 / -1;
+  }
+}
+.image-sonification .transport button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.loop-button[aria-pressed="true"] {
+  border-color: #8ac8ff;
+  background: #133052;
+  color: #e3ebf4;
+}
+/* Rendered (so page translation reaches it) but not visible; same clip as .sr-only. */
+.narration-source {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.narration-voice {
+  flex-basis: 100%;
+  color: #8f9db0;
+  font-size: 0.68rem;
+}
+.image-options select:disabled {
+  opacity: 0.5;
+}
+.high-contrast :is(.collection-hint, .collection-badge, .collection-keep, .narration-voice) {
+  color: #f4f8fc;
+}
 .sonification-alert {
   margin-top: 1rem;
   padding: 0.6rem 0.9rem;
