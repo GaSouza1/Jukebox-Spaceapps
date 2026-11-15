@@ -48,6 +48,14 @@ export const regions: Region[] = [
     longitude: -0.1276,
     coordinateSource: CITY_CENTRE,
   },
+  {
+    id: "cape-town",
+    name: "Cidade do Cabo",
+    country: "África do Sul",
+    latitude: -33.9249,
+    longitude: 18.4241,
+    coordinateSource: CITY_CENTRE,
+  },
 ];
 
 export function regionById(id: string): Region | undefined {
