@@ -137,7 +137,7 @@ export function SonificationPlayer({ data, unavailableReason }: Props) {
             }}
           />
         ))}
-        <span style={{ left: `${progress}%` }} />
+        <span style={{ left: `${progress + 1.2}%` }} />
       </div>
       <div className="timeline-readout">
         {/* Visible label (TA-05): voice-control users can name the slider. */}
