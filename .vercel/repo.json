@@ -1,0 +1,11 @@
+{
+  "remoteName": "origin",
+  "projects": [
+    {
+      "id": "prj_brmcBRcffpVaos3qzBidB2jDHBz5",
+      "name": "earth-information-jukebox",
+      "directory": ".",
+      "orgId": "team_vyJEookAz4MPnxqvFzZ7hw6x"
+    }
+  ]
+}

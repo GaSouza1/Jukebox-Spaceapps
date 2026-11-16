@@ -17,7 +17,12 @@ used here, including the demo image `src/assets/refence.png`. The engine
 therefore runs as **exploratory visual sonification**:
 
 - It sonifies _visual_ properties: luminance, contrast, hue family and position.
-- Colours are **never** read as CO₂, temperature or any other physical quantity.
+- Colours are **never** read as CO₂ or any other physical quantity, and the sound
+  never depends on a temperature reading.
+- The text profile and the narration add a **visual temperature** (the narration only names regions of high and low temperature), following the
+  usual convention of thermal maps: warm or strong colours read as high
+  temperature, cool or weak colours as low. It is a description of colour and
+  brightness, not a measured temperature, and the text says so.
 - The UI says this explicitly above the image.
 
 If a calibrated colour scale becomes available, the right place to use it is a
@@ -265,27 +270,44 @@ Play (starts at the selected image)
 The narration script (`narrationScript` in `describeImage.ts`) uses, in order:
 
 1. **Team-written description:** the human-written, checked description of the
-   demo image. Spoken as "Description written by the project team: …".
+   demo image. Spoken as "Team description: …".
 2. **Uploader's description:** typed in the optional "Your description of this
-   image" field. Spoken as "Description provided by the person who added this
-   image. The app has not verified it." followed by the text.
-3. **No description:** the narration says the image has no validated
-   description, explains that brightness, contrast, colour families and
-   horizontal distribution are converted into sound, and that the analysis does
-   not identify objects or geographical features.
+   image" field. Spoken as "Description by the uploader, not verified: …".
+3. **No description:** "No description is available. The app does not identify
+   objects or places."
 
-The script always starts with the image's position and name ("Image 2 of 3:
-photo.png"). Then it gives the **measured** features of that image, computed by
-`summarizeAnalysis` from the analysis:
+The script is deliberately short (at most six lines). It always starts with the
+image's position and name ("Image 2 of 3: photo.png"), then the description (if
+any), then only the **regions of high and low temperature**, then the reading
+direction. It never names colours, brightness or contrast:
 
-- mean brightness;
-- the share of warm, cool and neutral pixels;
-- the brightest and darkest third along the reading direction;
-- the contrast level and where it is highest;
-- whether bright areas lean left, right or sit near the centre.
+> High temperature: top third. Low temperature: bottom third. Estimated from the
+> image, not measured.
 
-When a description was given, the script adds that the sound comes from the
-measurements, not from the description.
+The temperature and direction sentences come from `describeGenerated`, which the
+narration speaks and the image caption shows right after the description, in the
+same paragraph, so the spoken and the written text always match.
+
+Regions are the thirds along the reading direction. A third at or above 0.65 is
+high and one below 0.35 is low (`HIGH_HEAT`, `LOW_HEAT`); thirds in between are
+not mentioned. With three high (or low) thirds the text says "the whole image",
+and when none qualifies, "No region stands out as high or low temperature."
+
+**Visual temperature** (`visualHeat` in `describeImage.ts`). Score from 0
+(coldest-looking) to 1 (hottest-looking), the mean of two equally weighted
+readings, so that both push the same way:
+
+- _hue_: the share of warm pixels among the coloured ones (warm → high, cool →
+  low; 0.5 when every pixel is neutral);
+- _strength_: the mean of colour vividness (mean chroma, saturating at 0.5) and
+  brightness (strong → high, weak → low).
+
+The text profile (not the narration) also gives a band for each of its six
+parts: below 0.2 low, 0.2–0.4 moderately low, 0.4–0.6 intermediate, 0.6–0.8
+moderately high, 0.8 and above high. The score is computed from the same
+measurements as the sound but **never feeds back into it**. Because the images
+have no colour scale, the narration says it is estimated, not measured. A vivid
+blue lands in the middle on purpose: cool pulls it down, strong pulls it up.
 
 **Scientific constraint:** the engine does not recognise objects. Nothing in the
 generated text names a forest, city, river, ocean, fire or any other feature.
@@ -515,8 +537,8 @@ ComparisonData ─ comparisonToScore() ─┘        └─ ScientificLayer: one
   with a warning.
 - **Narration settings apply per sentence:** a volume or voice-speed change takes
   effect at the next sentence.
-- **Long narration:** with the team description, the demo narration lasts about
-  40 s at 1.5× voice speed. Narration can be turned off or sped up.
+- **Narration length:** the script is short by design. Narration can be turned
+  off or sped up.
 - **Silent composition when both music layers are muted mid-image:** the
   Transport keeps running so the data timing is unchanged. Muting both before an
   image starts skips its composition.

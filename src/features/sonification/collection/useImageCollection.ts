@@ -30,7 +30,7 @@ export const DEMO_IMAGE: CollectionImage = {
   description: {
     alt: "Demo image, a global map in false colour. Description below.",
     humanText:
-      "A global map in false colour. Swirling reds and oranges cover the northern half, yellow and cyan bands cross the tropics, deep blue covers the southern oceans, and white Antarctic ice runs along the bottom. The image has no legend or colour scale.",
+      "A global map. High temperature in the northern half, intermediate in the tropics, low in the southern oceans and along the bottom. The image has no legend or scale, so this is an interpretation.",
     userText: null,
   },
 };
